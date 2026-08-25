@@ -1,0 +1,323 @@
+// ERP administration foundation — Phase 2 data model.
+//
+// Conventions (see docs/ARCHITECTURE.md):
+//   - Compact Int primary keys for joins; a cuid2 `publicId` for URLs and payloads,
+//     so sequential ids never leak and row counts cannot be inferred.
+//   - Case-insensitive uniqueness is enforced with a normalized lowercase companion
+//     column plus a unique index. A case-sensitive unique index on an email is not
+//     real uniqueness.
+//   - Soft delete (`deletedAt`) on Branch and User only, filtered explicitly by a
+//     repository helper rather than a client extension.
+//   - Actor attribution lives in AuditLog rather than createdBy/updatedBy columns on
+//     every table, which avoids circular foreign keys between User and its masters.
+//   - Tables and columns are snake_case so raw SQL reporting needs no quoted identifiers.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RecordStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("record_status")
+}
+
+enum BranchType {
+  HEAD_OFFICE
+  REGIONAL_OFFICE
+  WAREHOUSE
+  RETAIL_OUTLET
+  FACTORY
+
+  @@map("branch_type")
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  ACTIVATE
+  DEACTIVATE
+  LOGIN
+  LOGOUT
+  LOGIN_FAILED
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_COMPLETED
+  PASSWORD_CHANGED
+  PERMISSIONS_UPDATED
+
+  @@map("audit_action")
+}
+
+/// The owning company. Modelled as a table from the start so a second legal entity
+/// is a row rather than a migration, even though this install seeds exactly one.
+model Organization {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(cuid(2)) @map("public_id")
+
+  name           String  @db.VarChar(160)
+  legalName      String? @map("legal_name") @db.VarChar(200)
+  code           String  @db.VarChar(32)
+  codeNormalized String  @unique @map("code_normalized") @db.VarChar(32)
+
+  email       String? @db.VarChar(160)
+  phone       String? @db.VarChar(32)
+  taxId       String? @map("tax_id") @db.VarChar(64)
+  addressLine String? @map("address_line") @db.VarChar(240)
+  city        String? @db.VarChar(80)
+  state       String? @db.VarChar(80)
+  postalCode  String? @map("postal_code") @db.VarChar(20)
+  country     String? @db.VarChar(80)
+
+  status RecordStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  branches Branch[]
+
+  @@map("organizations")
+}
+
+model Branch {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(cuid(2)) @map("public_id")
+
+  organizationId Int          @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  code           String @db.VarChar(32)
+  codeNormalized String @map("code_normalized") @db.VarChar(32)
+  name           String @db.VarChar(160)
+  nameNormalized String @map("name_normalized") @db.VarChar(160)
+
+  type         BranchType @default(REGIONAL_OFFICE)
+  isHeadOffice Boolean    @default(false) @map("is_head_office")
+
+  email        String? @db.VarChar(160)
+  phone        String? @db.VarChar(32)
+  addressLine1 String? @map("address_line1") @db.VarChar(240)
+  addressLine2 String? @map("address_line2") @db.VarChar(240)
+  city         String? @db.VarChar(80)
+  state        String? @db.VarChar(80)
+  postalCode   String? @map("postal_code") @db.VarChar(20)
+  country      String? @db.VarChar(80)
+
+  status RecordStatus @default(ACTIVE)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  users User[]
+
+  // Scoped to the organization: two legal entities may legitimately both have a "HO".
+  @@unique([organizationId, codeNormalized])
+  @@index([organizationId])
+  @@index([status])
+  @@index([deletedAt])
+  @@index([nameNormalized])
+  @@map("branches")
+}
+
+model Role {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(cuid(2)) @map("public_id")
+
+  /// Stable identifier for code and seeds. The display name stays editable.
+  slug           String  @unique @db.VarChar(64)
+  name           String  @db.VarChar(96)
+  nameNormalized String  @unique @map("name_normalized") @db.VarChar(96)
+  description    String? @db.VarChar(400)
+
+  /// Seeded roles cannot be deleted, only reconfigured.
+  isSystem     Boolean @default(false) @map("is_system")
+  /// Bypasses individual permission checks. Exactly one seeded role holds this.
+  isSuperAdmin Boolean @default(false) @map("is_super_admin")
+
+  status RecordStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  permissions RolePermission[]
+  users       User[]
+
+  @@index([status])
+  @@map("roles")
+}
+
+/// One row per grantable capability, generated from PERMISSION_CATALOG. Adding an
+/// ERP module is a seed insert plus a constants entry — no migration.
+model Permission {
+  id Int @id @default(autoincrement())
+
+  module String @db.VarChar(64)
+  action String @db.VarChar(32)
+
+  label       String  @db.VarChar(96)
+  description String? @db.VarChar(400)
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  roles RolePermission[]
+
+  @@unique([module, action])
+  @@index([module])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id Int @id @default(autoincrement())
+
+  roleId Int  @map("role_id")
+  role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  permissionId Int        @map("permission_id")
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  grantedAt DateTime @default(now()) @map("granted_at")
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(cuid(2)) @map("public_id")
+
+  employeeCode           String @map("employee_code") @db.VarChar(32)
+  employeeCodeNormalized String @unique @map("employee_code_normalized") @db.VarChar(32)
+
+  firstName String @map("first_name") @db.VarChar(80)
+  lastName  String @map("last_name") @db.VarChar(80)
+
+  email           String @db.VarChar(160)
+  emailNormalized String @unique @map("email_normalized") @db.VarChar(160)
+
+  passwordHash String  @map("password_hash")
+  phone        String? @db.VarChar(32)
+  designation  String? @db.VarChar(96)
+  /// Public path of the uploaded profile photo, e.g. `/uploads/avatars/{id}.jpg`.
+  avatarPath   String? @map("avatar_path") @db.VarChar(240)
+
+  // Restrict, not Cascade: a branch or role still holding users must not be
+  // deletable, even by a service that forgot to check.
+  branchId Int    @map("branch_id")
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  roleId Int  @map("role_id")
+  role   Role @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  status RecordStatus @default(ACTIVE)
+
+  /// Forces a password change on next sign-in, used for admin-created accounts.
+  mustChangePassword Boolean @default(false) @map("must_change_password")
+  /// Bumped on password change or forced logout, which invalidates issued cookies.
+  tokenVersion       Int     @default(0) @map("token_version")
+
+  lastLoginAt         DateTime? @map("last_login_at")
+  passwordChangedAt   DateTime? @map("password_changed_at")
+  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime? @map("locked_until")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  passwordResetTokens PasswordResetToken[]
+  auditLogs           AuditLog[]
+
+  @@index([branchId])
+  @@index([roleId])
+  @@index([status])
+  @@index([deletedAt])
+  @@index([lastName, firstName])
+  @@index([branchId, status])
+  @@index([roleId, status])
+  @@map("users")
+}
+
+/// Reset tokens are stored as hashes: a leaked database row must not be redeemable.
+model PasswordResetToken {
+  id Int @id @default(autoincrement())
+
+  userId Int  @map("user_id")
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash String @unique @map("token_hash") @db.VarChar(128)
+
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+
+  requestedIp String?  @map("requested_ip") @db.VarChar(64)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+/// One row per sign-in attempt, including misses. Per-account lockout lives on
+/// User; this table is what makes IP-wide throttling and later forensics possible
+/// without trusting the user row (which an unknown email does not have).
+model LoginAttempt {
+  id Int @id @default(autoincrement())
+
+  emailAttempted  String @map("email_attempted") @db.VarChar(160)
+  emailNormalized String @map("email_normalized") @db.VarChar(160)
+  ipAddress       String? @map("ip_address") @db.VarChar(64)
+  successful      Boolean @default(false)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([emailNormalized, createdAt])
+  @@index([ipAddress, createdAt])
+  @@map("login_attempts")
+}
+
+model AuditLog {
+  id Int @id @default(autoincrement())
+
+  // SetNull rather than Cascade: deleting a user must not erase the trail of what
+  // they did. The denormalized snapshot below keeps the row readable afterwards.
+  actorUserId Int?  @map("actor_user_id")
+  actor       User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  /// Snapshot of the actor, and the only identity available for a failed sign-in
+  /// where the email matched no account.
+  actorEmail String? @map("actor_email") @db.VarChar(160)
+  actorName  String? @map("actor_name") @db.VarChar(160)
+
+  action AuditAction
+
+  entityType     String  @map("entity_type") @db.VarChar(64)
+  entityId       Int?    @map("entity_id")
+  entityPublicId String? @map("entity_public_id") @db.VarChar(32)
+
+  summary String? @db.VarChar(400)
+  /// Field-level diff, filtered through a redaction allowlist so password hashes
+  /// and tokens can never be serialized here.
+  changes Json?
+
+  ipAddress String? @map("ip_address") @db.VarChar(64)
+  userAgent String? @map("user_agent") @db.VarChar(400)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([actorUserId])
+  @@index([entityType, entityId, createdAt])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
