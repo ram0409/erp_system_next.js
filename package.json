@@ -3,7 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=20.11.0"
+    "node": "20.x"
+  },
+  "allowScripts": {
+    "@prisma/engines": true,
+    "esbuild": true,
+    "prisma": true,
+    "unrs-resolver": true
   },
   "scripts": {
     "dev": "next dev",
