@@ -1,11 +1,8 @@
 import "dotenv/config";
 
-import { randomInt } from "node:crypto";
-
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 
-import { PASSWORD_RULES } from "../src/constants/auth";
 import {
   PERMISSION_ACTION_LABELS,
   PERMISSION_CATALOG,
@@ -13,19 +10,15 @@ import {
 } from "../src/constants/permissions";
 import { SEEDED_ROLE_GRANTS } from "../src/constants/role-grants";
 import { BRANCH_TYPES, RECORD_STATUS, ROLE_SLUGS, type RoleSlug } from "../src/constants/status";
-import { normalizeCode, normalizeEmail, normalizeKey } from "../src/lib/normalize";
-import { hashPassword } from "../src/lib/password";
+import { normalizeCode, normalizeKey } from "../src/lib/normalize";
 import { PrismaClient } from "../generated/prisma/client";
 
 /**
  * Idempotent seed: safe to run repeatedly against an existing database.
  *
- * Every write is an upsert keyed on a stable natural key (permission module+action,
- * role slug, normalized email), so re-running never duplicates rows and never
- * resets an administrator's edits to names or descriptions of records they own.
- *
- * The one deliberate exception is that an existing admin user's password is left
- * untouched — re-seeding must not silently reset live credentials.
+ * Seeds catalog data only: organization, branch, roles and permissions.
+ * User accounts are never created or updated here — sign-in uses whatever
+ * administrators already exist in the database.
  */
 
 type RoleSeed = {
@@ -73,36 +66,6 @@ function readEnv(key: string, fallback: string): string {
   return value === undefined || value.trim() === "" ? fallback : value.trim();
 }
 
-/**
- * Generates a password that satisfies PASSWORD_RULES. Used only when no
- * SEED_ADMIN_PASSWORD is supplied; the value is printed once and never stored.
- */
-function generatePassword(): string {
-  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-  const lower = "abcdefghijkmnopqrstuvwxyz";
-  const digits = "23456789";
-  const symbols = "!@#$%^&*-_=+";
-  const all = upper + lower + digits + symbols;
-
-  const pick = (source: string): string => source[randomInt(source.length)] as string;
-
-  // One character from each required class guarantees the policy is met, then the
-  // remainder is filled at random and the whole thing shuffled so the classes are
-  // not in a predictable position.
-  const required = [pick(upper), pick(lower), pick(digits), pick(symbols)];
-  const remaining = Array.from({ length: 16 - required.length }, () => pick(all));
-  const characters = [...required, ...remaining];
-
-  for (let index = characters.length - 1; index > 0; index -= 1) {
-    const swap = randomInt(index + 1);
-    const current = characters[index] as string;
-    characters[index] = characters[swap] as string;
-    characters[swap] = current;
-  }
-
-  return characters.join("");
-}
-
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
@@ -111,26 +74,6 @@ async function main(): Promise<void> {
   const organizationCode = readEnv("SEED_ORG_CODE", "NK");
   const branchCode = readEnv("SEED_BRANCH_CODE", "HO");
   const branchName = readEnv("SEED_BRANCH_NAME", "Head Office");
-
-  const adminEmail = readEnv("SEED_ADMIN_EMAIL", "systemadmin@sample.com");
-  const adminEmployeeCode = readEnv("SEED_ADMIN_EMPLOYEE_CODE", "systemadmin.sample");
-  const adminFirstName = readEnv("SEED_ADMIN_FIRST_NAME", "System");
-  const adminLastName = readEnv("SEED_ADMIN_LAST_NAME", "Administrator");
-
-  const suppliedPassword = process.env.SEED_ADMIN_PASSWORD?.trim();
-  const adminPassword =
-    suppliedPassword && suppliedPassword.length > 0 ? suppliedPassword : generatePassword();
-  const passwordWasGenerated = !suppliedPassword;
-
-  if (adminPassword.length < PASSWORD_RULES.MIN_LENGTH) {
-    throw new Error(
-      `SEED_ADMIN_PASSWORD must be at least ${PASSWORD_RULES.MIN_LENGTH} characters.`,
-    );
-  }
-
-  // Hashed outside the transaction: Argon2 is intentionally slow and would eat
-  // into the transaction timeout budget.
-  const passwordHash = await hashPassword(adminPassword);
 
   const summary = await prisma.$transaction(
     async (tx) => {
@@ -240,60 +183,10 @@ async function main(): Promise<void> {
         }
       }
 
-      const superAdminRoleId = roleIdsBySlug.get(ROLE_SLUGS.SUPER_ADMIN);
-      if (superAdminRoleId === undefined) {
-        throw new Error("Super admin role was not seeded.");
-      }
-
-      const emailNormalized = normalizeEmail(adminEmail);
-      const existing = await tx.user.findUnique({
-        where: { emailNormalized },
-        select: { id: true },
-      });
-
-      const resetExistingPassword = process.env.SEED_ADMIN_RESET_PASSWORD === "true";
-      const shouldWritePassword = existing === null || resetExistingPassword;
-
-      const admin = await tx.user.upsert({
-        where: { emailNormalized },
-        // An existing account keeps its password unless SEED_ADMIN_RESET_PASSWORD
-        // is set: re-seeding must never reset a live credential by accident.
-        // Employee code and break-glass status are re-asserted so the seeded
-        // administrator cannot be left deactivated, demoted, or renamed away
-        // from the documented login identity.
-        update: {
-          employeeCode: adminEmployeeCode,
-          employeeCodeNormalized: normalizeCode(adminEmployeeCode),
-          roleId: superAdminRoleId,
-          branchId: branch.id,
-          status: RECORD_STATUS.ACTIVE,
-          deletedAt: null,
-          lockedUntil: null,
-          failedLoginAttempts: 0,
-          ...(shouldWritePassword
-            ? {
-                passwordHash,
-                mustChangePassword: passwordWasGenerated,
-                passwordChangedAt: new Date(),
-              }
-            : {}),
-        },
-        create: {
-          employeeCode: adminEmployeeCode,
-          employeeCodeNormalized: normalizeCode(adminEmployeeCode),
-          firstName: adminFirstName,
-          lastName: adminLastName,
-          email: adminEmail,
-          emailNormalized,
-          passwordHash,
-          designation: "System Administrator",
-          branchId: branch.id,
-          roleId: superAdminRoleId,
-          status: RECORD_STATUS.ACTIVE,
-          mustChangePassword: passwordWasGenerated,
-          passwordChangedAt: new Date(),
-        },
-        select: { id: true, email: true, employeeCode: true },
+      const admins = await tx.user.findMany({
+        where: { deletedAt: null, role: { isSuperAdmin: true } },
+        select: { email: true, employeeCode: true, firstName: true, lastName: true, status: true },
+        orderBy: { id: "asc" },
       });
 
       return {
@@ -301,8 +194,7 @@ async function main(): Promise<void> {
         branch,
         permissionCount,
         roleCount: ROLE_SEEDS.length,
-        admin,
-        adminAlreadyExisted: existing !== null,
+        admins,
       };
     },
     { timeout: 30_000 },
@@ -313,28 +205,20 @@ async function main(): Promise<void> {
   console.log(`  Branch       : ${summary.branch.name} (${summary.branch.code})`);
   console.log(`  Permissions  : ${summary.permissionCount}`);
   console.log(`  Roles        : ${summary.roleCount}`);
-  console.log(`  Super admin  : ${summary.admin.email} (${summary.admin.employeeCode})`);
 
-  if (summary.adminAlreadyExisted && !process.env.SEED_ADMIN_RESET_PASSWORD) {
+  if (summary.admins.length === 0) {
     console.log(
-      "\n  The admin account already existed, so its password was left unchanged.\n" +
-        "  Set SEED_ADMIN_PASSWORD and SEED_ADMIN_RESET_PASSWORD=true if you need a new one.",
+      "\n  No Super Admin user was found in the database. Seed does not create accounts;\n" +
+        "  sign in with an existing user, or create one in the users table.",
     );
     return;
   }
 
-  if (summary.adminAlreadyExisted && process.env.SEED_ADMIN_RESET_PASSWORD === "true") {
-    console.log("\n  Existing admin password was reset (SEED_ADMIN_RESET_PASSWORD=true).");
-  }
-
-  if (passwordWasGenerated) {
-    console.log("\n  ------------------------------------------------------------");
-    console.log(`  Generated password: ${adminPassword}`);
-    console.log("  Shown once and not stored anywhere. Save it now.");
-    console.log("  A password change is required at first sign-in.");
-    console.log("  ------------------------------------------------------------");
-  } else {
-    console.log("\n  Password was taken from SEED_ADMIN_PASSWORD.");
+  console.log("\n  Super Admin accounts in the database (passwords are not changed):");
+  for (const admin of summary.admins) {
+    console.log(
+      `    - ${admin.email} (${admin.employeeCode}) ${admin.firstName} ${admin.lastName} [${admin.status}]`,
+    );
   }
 }
 

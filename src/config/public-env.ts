@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { resolvePublicAppUrl } from "@/config/resolve-env";
+
 /**
  * Client-safe configuration. Values are inlined by Next at build time, so they
  * must be referenced statically — never through a computed key.
@@ -11,7 +13,7 @@ const publicEnvSchema = z.object({
 
 const parsed = publicEnvSchema.safeParse({
   NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME || undefined,
-  NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || undefined,
+  NEXT_PUBLIC_APP_URL: resolvePublicAppUrl() || undefined,
 });
 
 if (!parsed.success) {

@@ -28,6 +28,7 @@ const nextConfig: NextConfig = {
     "pg",
     "@node-rs/argon2",
     "nodemailer",
+    "@vercel/functions",
   ],
   async headers() {
     return [

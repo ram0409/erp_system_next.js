@@ -1,6 +1,7 @@
 import "server-only";
 
 import { PrismaPg } from "@prisma/adapter-pg";
+import { attachDatabasePool } from "@vercel/functions";
 import { Pool } from "pg";
 
 import { env, isDevelopment, isProduction } from "@/config/env";
@@ -27,13 +28,33 @@ const globalForPrisma = globalThis as unknown as {
   prismaClientRef?: typeof PrismaClient;
 };
 
+function poolSsl(): boolean | { rejectUnauthorized: boolean } | undefined {
+  if (process.env.VERCEL !== "1") {
+    return undefined;
+  }
+  if (/sslmode=disable/i.test(env.DATABASE_URL)) {
+    return undefined;
+  }
+  // Managed Postgres on Vercel/Neon/Supabase requires TLS. Local `next start` is
+  // unaffected because VERCEL is unset.
+  return { rejectUnauthorized: false };
+}
+
 function createPool(): Pool {
-  return new Pool({
+  const onVercel = process.env.VERCEL === "1";
+  const pool = new Pool({
     connectionString: env.DATABASE_URL,
     max: isProduction ? 10 : 5,
-    idleTimeoutMillis: 30_000,
+    idleTimeoutMillis: onVercel ? 5_000 : 30_000,
     connectionTimeoutMillis: 10_000,
+    ssl: poolSsl(),
   });
+
+  if (onVercel) {
+    attachDatabasePool(pool);
+  }
+
+  return pool;
 }
 
 function createClient(pool: Pool): PrismaClient {
