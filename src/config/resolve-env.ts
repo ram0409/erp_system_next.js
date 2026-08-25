@@ -69,8 +69,13 @@ export function resolvePublicAppUrl(env: NodeJS.Dict<string> = process.env): str
 }
 
 export function vercelLocalDatabaseMessage(databaseUrl: string, env: NodeJS.Dict<string> = process.env): string | undefined {
-  if (env.VERCEL === "1" && isLoopbackHost(databaseUrl)) {
-    return "DATABASE_URL points at localhost, which Vercel cannot reach. Set DATABASE_URL to a hosted PostgreSQL URL (Neon, Supabase, Vercel Postgres, or RDS).";
+  if (env.VERCEL !== "1" || !isLoopbackHost(databaseUrl)) {
+    return undefined;
   }
-  return undefined;
+  // `next build` does not need a live database. A leftover laptop URL must not
+  // abort the compile; the first request still fails with this message.
+  if (env.NEXT_PHASE === "phase-production-build") {
+    return undefined;
+  }
+  return "DATABASE_URL points at localhost, which Vercel cannot reach. Set DATABASE_URL to a hosted PostgreSQL URL (Neon, Supabase, Vercel Postgres, or RDS).";
 }
