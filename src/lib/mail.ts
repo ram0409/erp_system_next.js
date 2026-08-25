@@ -34,7 +34,7 @@ function smtpTransport() {
   });
 }
 
-function isBrevoApiKey(value: string | undefined): boolean {
+function isBrevoApiKey(value: string | undefined): value is string {
   return Boolean(value?.startsWith("xkeysib-"));
 }
 
