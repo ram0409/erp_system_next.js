@@ -1,5 +1,4 @@
-import { randomBytes } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import pg from "pg";
@@ -21,57 +20,15 @@ function parseEnv(text: string): Record<string, string> {
   return result;
 }
 
-function upsertEnv(text: string, key: string, value: string): string {
-  const line = `${key}=${value}`;
-  const pattern = new RegExp(`^${key}=.*$`, "m");
-  if (pattern.test(text)) {
-    return text.replace(pattern, line);
-  }
-  return `${text.trimEnd()}\n${line}\n`;
-}
-
-function generatePassword(): string {
-  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-  const lower = "abcdefghijkmnopqrstuvwxyz";
-  const digits = "23456789";
-  const symbols = "!@#$%^&*-_=+";
-  const all = upper + lower + digits + symbols;
-  const pick = (source: string): string => source[randomBytes(1)[0]! % source.length]!;
-  const chars = [pick(upper), pick(lower), pick(digits), pick(symbols)];
-  while (chars.length < 16) {
-    chars.push(pick(all));
-  }
-  for (let index = chars.length - 1; index > 0; index -= 1) {
-    const swap = randomBytes(1)[0]! % (index + 1);
-    const current = chars[index]!;
-    chars[index] = chars[swap]!;
-    chars[swap] = current;
-  }
-  return chars.join("");
-}
-
 async function main(): Promise<void> {
-  let envText = readFileSync(envPath, "utf8");
-  const env = parseEnv(envText);
+  const env = parseEnv(readFileSync(envPath, "utf8"));
 
   if (!env.DATABASE_URL) {
     throw new Error("DATABASE_URL is missing from .env");
   }
 
-  envText = upsertEnv(envText, "SEED_ADMIN_EMAIL", "systemadmin@sample.com");
-  envText = upsertEnv(envText, "SEED_ADMIN_EMPLOYEE_CODE", "systemadmin.sample");
-  envText = upsertEnv(envText, "SEED_ADMIN_FIRST_NAME", "System");
-  envText = upsertEnv(envText, "SEED_ADMIN_LAST_NAME", "Administrator");
-
-  if (!env.SEED_ADMIN_PASSWORD || env.SEED_ADMIN_PASSWORD.trim() === "") {
-    envText = upsertEnv(envText, "SEED_ADMIN_PASSWORD", generatePassword());
-  }
-
-  writeFileSync(envPath, envText);
-
-  const refreshed = parseEnv(envText);
-  const databaseUrl = new URL(refreshed.DATABASE_URL!);
-  const adminUrl = new URL(refreshed.DATABASE_URL!);
+  const databaseUrl = new URL(env.DATABASE_URL);
+  const adminUrl = new URL(env.DATABASE_URL);
   adminUrl.pathname = "/postgres";
 
   const client = new pg.Client({ connectionString: adminUrl.toString() });

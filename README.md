@@ -28,7 +28,7 @@ bundled `docker compose up -d`.
 npm install                 # also runs `prisma generate`
 cp .env.example .env        # then fill in the blank values
 npm run db:migrate          # create the schema
-npm run db:seed             # organization, branch, roles, permissions, super admin
+npm run db:seed             # organization, branch, roles, permissions (no users)
 npm run dev
 ```
 
@@ -41,18 +41,11 @@ openssl rand -base64 32
 The application refuses to start if any required environment variable is missing or
 malformed, and reports every problem at once. See `.env.example` for the full list.
 
-### The seeded administrator
-
-`npm run db:seed` is idempotent and safe to re-run. It creates the super admin from
-`SEED_ADMIN_EMAIL`, and if `SEED_ADMIN_PASSWORD` is blank it generates a policy-compliant
-password, prints it **once**, and flags the account so the password must be changed at
-first sign-in. Re-running the seed never overwrites the password of an account that
-already exists, so a live credential cannot be reset by accident.
-
-Verify a credential without a browser:
+Sign in with a user that already exists in the database. Seed never creates or
+resets accounts. Verify a credential without a browser:
 
 ```bash
-npm run db:verify -- systemadmin@sample.com 'the-password'
+npm run db:verify -- existing-user@example.com 'the-password'
 ```
 
 ## Scripts
@@ -74,7 +67,7 @@ npm run db:verify -- systemadmin@sample.com 'the-password'
 | `npm run db:migrate`  | Create and apply a migration in development         |
 | `npm run db:deploy`   | Apply pending migrations (production)               |
 | `npm run db:status`   | Show migration state                                |
-| `npm run db:seed`     | Idempotent seed                                     |
+| `npm run db:seed`     | Idempotent catalog seed (no user accounts)          |
 | `npm run db:reset`    | Drop, re-migrate and re-seed — destroys all data    |
 | `npm run db:studio`   | Prisma Studio                                       |
 | `npm run db:generate` | Regenerate the client after editing `schema.prisma` |

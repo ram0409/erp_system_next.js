@@ -2,6 +2,8 @@ import "server-only";
 
 import { z } from "zod";
 
+import { resolveAuthUrl, resolveDatabaseUrl, vercelLocalDatabaseMessage } from "@/config/resolve-env";
+
 /**
  * Server environment. Importing this module from anywhere that can reach a
  * client bundle is a build error, which is what keeps secrets out of the browser.
@@ -52,6 +54,8 @@ function readRawEnv(): Record<string, string | undefined> {
     const value = process.env[key];
     raw[key] = value === "" ? undefined : value;
   }
+  raw.DATABASE_URL = resolveDatabaseUrl();
+  raw.AUTH_URL = resolveAuthUrl();
   return raw;
 }
 
@@ -72,6 +76,11 @@ function loadServerEnv(): ServerEnv {
     throw new Error(
       `Invalid environment configuration:\n${problems}\n\nCompare your .env against .env.example.`,
     );
+  }
+
+  const localDatabase = vercelLocalDatabaseMessage(parsed.data.DATABASE_URL);
+  if (localDatabase) {
+    throw new Error(localDatabase);
   }
 
   return parsed.data;
