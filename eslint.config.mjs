@@ -1,3 +1,4 @@
+import { fixupConfigRules } from "@eslint/compat";
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
@@ -6,12 +7,12 @@ import nextTs from "eslint-config-next/typescript";
  * Architectural boundaries are enforced here rather than by convention, because
  * a rule that only lives in a document stops being true within a few sprints.
  *
- * Stay on ESLint 9 until eslint-config-next supports ESLint 10 (its React plugin
- * still declares a peer of eslint ^9).
+ * eslint-config-next's React plugin still calls ESLint 9's getFilename().
+ * The compat shim restores that API so ESLint 10 can load the Next presets.
  */
 const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
+  ...fixupConfigRules(nextVitals),
+  ...fixupConfigRules(nextTs),
 
   {
     name: "erp/typescript-discipline",
