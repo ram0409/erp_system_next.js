@@ -8,6 +8,7 @@ import { SUCCESS_MESSAGES } from "@/constants/messages";
 import { defineAuthenticatedAction, definePublicAction } from "@/lib/action";
 import { getUserAgent } from "@/lib/request";
 import { clearSessionCookie, setSessionCookie } from "@/lib/session-cookie";
+import { clearWorkspaceCookie } from "@/lib/workspace-cookie";
 import * as authService from "@/services/auth-service";
 import {
   changePasswordSchema,
@@ -62,6 +63,7 @@ export const signOutAction = defineAuthenticatedAction({
     });
 
     await clearSessionCookie();
+    await clearWorkspaceCookie();
 
     return { redirectTo: ROUTES.LOGIN };
   },
@@ -120,6 +122,7 @@ export const resetPasswordAction = definePublicAction({
     });
 
     await clearSessionCookie();
+    await clearWorkspaceCookie();
 
     return { redirectTo: ROUTES.LOGIN };
   },

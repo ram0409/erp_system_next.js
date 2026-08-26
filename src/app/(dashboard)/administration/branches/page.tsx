@@ -10,6 +10,7 @@ import { BranchesWorkspace } from "@/features/branches/components/branches-works
 import { requirePageAccess } from "@/lib/page-guard";
 import { resolveAllowedValue, resolveSearchTerm } from "@/lib/pagination";
 import { listBranches } from "@/services/branch-service";
+import { listEntityOptions } from "@/services/entity-service";
 
 export const metadata: Metadata = { title: "Branches" };
 
@@ -29,7 +30,7 @@ export default async function BranchesPage({
   }
 
   const params = await searchParams;
-  const result = await listBranches(params);
+  const [result, entities] = await Promise.all([listBranches(params), listEntityOptions()]);
   const search = resolveSearchTerm(params);
   const status = resolveAllowedValue(params, TABLE_QUERY_KEYS.STATUS, RECORD_STATUS_VALUES);
   const type = resolveAllowedValue(params, TABLE_QUERY_KEYS.TYPE, BRANCH_TYPE_VALUES);
@@ -46,6 +47,7 @@ export default async function BranchesPage({
         meta={result.meta}
         isFiltered={isFiltered}
         actorBranchPublicId={access.actor.user.branch.publicId}
+        entities={entities}
         exportFilters={{
           ...(search ? { search } : {}),
           ...(status ? { status } : {}),

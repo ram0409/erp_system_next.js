@@ -1,12 +1,10 @@
 import "server-only";
 
 import {
-  PERMISSION_ACTIONS,
-  PERMISSION_MODULES,
   isPermissionKey,
   type PermissionKey,
 } from "@/constants/permissions";
-import { RECORD_STATUS, type RecordStatus } from "@/constants/status";
+import { type RecordStatus } from "@/constants/status";
 import { normalizeCode, normalizeEmail, normalizeKey } from "@/lib/normalize";
 import { prisma } from "@/lib/prisma";
 import { buildPaginatedResult } from "@/lib/pagination";
@@ -52,7 +50,15 @@ const ACTOR_SELECT = {
     },
   },
   branch: {
-    select: { publicId: true, code: true, name: true, status: true, deletedAt: true },
+    select: {
+      publicId: true,
+      code: true,
+      name: true,
+      status: true,
+      deletedAt: true,
+      entityId: true,
+      entity: { select: { publicId: true, code: true, name: true } },
+    },
   },
 } satisfies Prisma.UserSelect;
 
@@ -217,18 +223,6 @@ export function findByNormalizedEmail(
     prisma.user.findFirst({
       where: { emailNormalized: normalizeEmail(email), ...NOT_DELETED },
       select: { id: true, publicId: true, email: true, status: true },
-    }),
-  );
-}
-
-export function listEmployeeOptions(): Promise<
-  { publicId: string; employeeCode: string; firstName: string; lastName: string }[]
-> {
-  return withPrismaErrors("user.listEmployeeOptions", () =>
-    prisma.user.findMany({
-      where: { ...NOT_DELETED, status: "ACTIVE", role: { isSuperAdmin: false } },
-      select: { publicId: true, employeeCode: true, firstName: true, lastName: true },
-      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     }),
   );
 }
@@ -526,36 +520,26 @@ export async function listMatching(
   return { rows, total };
 }
 
-export function countByStatus(): Promise<{ status: RecordStatus; count: number }[]> {
+export function countByStatus(
+  branchId?: number,
+): Promise<{ status: RecordStatus; count: number }[]> {
   return withPrismaErrors("user.countByStatus", async () => {
     const grouped = await prisma.user.groupBy({
       by: ["status"],
-      where: NOT_DELETED,
+      where: { ...NOT_DELETED, ...(branchId !== undefined ? { branchId } : {}) },
       _count: { _all: true },
     });
     return grouped.map((row) => ({ status: row.status, count: row._count._all }));
   });
 }
 
-/** Workforce counts used by the dashboard. Super Admin is not an employee record. */
-export function countEmployeesByStatus(): Promise<{ status: RecordStatus; count: number }[]> {
-  return withPrismaErrors("user.countEmployeesByStatus", async () => {
-    const grouped = await prisma.user.groupBy({
-      by: ["status"],
-      where: { ...NOT_DELETED, role: { isSuperAdmin: false } },
-      _count: { _all: true },
-    });
-    return grouped.map((row) => ({ status: row.status, count: row._count._all }));
-  });
-}
-
-export async function countGroupedByBranch(): Promise<
-  { publicId: string; code: string; name: string; count: number }[]
-> {
+export async function countGroupedByBranch(
+  branchId?: number,
+): Promise<{ publicId: string; code: string; name: string; count: number }[]> {
   return withPrismaErrors("user.countGroupedByBranch", async () => {
     const grouped = await prisma.user.groupBy({
       by: ["branchId"],
-      where: NOT_DELETED,
+      where: { ...NOT_DELETED, ...(branchId !== undefined ? { branchId } : {}) },
       _count: { _all: true },
     });
 
@@ -588,13 +572,13 @@ export async function countGroupedByBranch(): Promise<
   });
 }
 
-export async function countGroupedByRole(): Promise<
-  { publicId: string; name: string; slug: string; count: number }[]
-> {
+export async function countGroupedByRole(
+  branchId?: number,
+): Promise<{ publicId: string; name: string; slug: string; count: number }[]> {
   return withPrismaErrors("user.countGroupedByRole", async () => {
     const grouped = await prisma.user.groupBy({
       by: ["roleId"],
-      where: NOT_DELETED,
+      where: { ...NOT_DELETED, ...(branchId !== undefined ? { branchId } : {}) },
       _count: { _all: true },
     });
 
@@ -655,40 +639,6 @@ export function isEmployeeCodeTaken(code: string, exceptPublicId?: string): Prom
       select: { id: true },
     });
     return found !== null;
-  });
-}
-
-/**
- * Super Admins and users who can edit leave (HR / managers). Used to fan out
- * leave-raised notifications without sending them back to the requester.
- */
-export function findLeaveReviewerIds(excludeUserId: number): Promise<number[]> {
-  return withPrismaErrors("user.findLeaveReviewerIds", async () => {
-    const rows = await prisma.user.findMany({
-      where: {
-        ...NOT_DELETED,
-        status: RECORD_STATUS.ACTIVE,
-        id: { not: excludeUserId },
-        role: {
-          status: RECORD_STATUS.ACTIVE,
-          OR: [
-            { isSuperAdmin: true },
-            {
-              permissions: {
-                some: {
-                  permission: {
-                    module: PERMISSION_MODULES.LEAVE,
-                    action: PERMISSION_ACTIONS.EDIT,
-                  },
-                },
-              },
-            },
-          ],
-        },
-      },
-      select: { id: true },
-    });
-    return rows.map((row) => row.id);
   });
 }
 

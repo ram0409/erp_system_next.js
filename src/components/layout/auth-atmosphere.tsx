@@ -1,5 +1,5 @@
 /**
- * Animated sign-in stage. Decorative only — the form sits in front.
+ * Sign-in stage backdrop. Decorative only — the form sits in front.
  */
 export function AuthAtmosphere() {
   return (
@@ -16,15 +16,6 @@ export function AuthAtmosphere() {
 
       <div className="auth-sheen absolute inset-0" />
       <div className="auth-mesh absolute inset-0" />
-
-      <span className="auth-sparkle absolute top-[16%] left-[14%] size-1.5 rounded-full" />
-      <span className="auth-sparkle auth-sparkle-delay-1 absolute top-[24%] right-[18%] size-1 rounded-full" />
-      <span className="auth-sparkle auth-sparkle-delay-2 absolute bottom-[20%] left-[22%] size-1.5 rounded-full" />
-      <span className="auth-sparkle auth-sparkle-delay-3 absolute top-[58%] right-[26%] size-1 rounded-full" />
-      <span className="auth-sparkle auth-sparkle-delay-1 absolute top-[10%] right-[40%] size-1 rounded-full" />
-      <span className="auth-sparkle auth-sparkle-delay-2 absolute bottom-[14%] right-[16%] size-1.5 rounded-full" />
-      <span className="auth-sparkle auth-sparkle-delay-3 absolute top-[72%] left-[12%] size-1 rounded-full" />
-      <span className="auth-sparkle absolute top-[36%] left-[8%] size-1 rounded-full" />
     </div>
   );
 }

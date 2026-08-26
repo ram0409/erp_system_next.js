@@ -85,16 +85,30 @@ async function main(): Promise<void> {
         select: { id: true, name: true, code: true },
       });
 
+      const entity = await tx.businessEntity.upsert({
+        where: { codeNormalized: normalizeCode(organizationCode) },
+        update: {},
+        create: {
+          code: organizationCode,
+          codeNormalized: normalizeCode(organizationCode),
+          name: organizationName,
+          nameNormalized: normalizeKey(organizationName),
+          status: RECORD_STATUS.ACTIVE,
+        },
+        select: { id: true },
+      });
+
       const branch = await tx.branch.upsert({
         where: {
-          organizationId_codeNormalized: {
-            organizationId: organization.id,
+          entityId_codeNormalized: {
+            entityId: entity.id,
             codeNormalized: normalizeCode(branchCode),
           },
         },
         update: {},
         create: {
           organizationId: organization.id,
+          entityId: entity.id,
           code: branchCode,
           codeNormalized: normalizeCode(branchCode),
           name: branchName,

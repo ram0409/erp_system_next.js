@@ -22,6 +22,7 @@ const LIST_SELECT = {
   state: true,
   status: true,
   createdAt: true,
+  entity: { select: { publicId: true, code: true, name: true, status: true } },
   _count: { select: { users: { where: NOT_DELETED } } },
 } satisfies Prisma.BranchSelect;
 
@@ -32,6 +33,7 @@ const DETAIL_SELECT = {
   postalCode: true,
   country: true,
   organizationId: true,
+  entityId: true,
   updatedAt: true,
 } satisfies Prisma.BranchSelect;
 
@@ -45,10 +47,12 @@ export interface BranchListFilters {
   readonly search?: string | undefined;
   readonly status?: RecordStatus | undefined;
   readonly type?: BranchType | undefined;
+  readonly entityId?: number | undefined;
 }
 
 export interface CreateBranchInput {
   readonly organizationId: number;
+  readonly entityId: number;
   readonly code: string;
   readonly name: string;
   readonly type: BranchType;
@@ -71,10 +75,17 @@ function listWhere(filters: BranchListFilters): Prisma.BranchWhereInput {
 
   if (filters.status) where.status = filters.status;
   if (filters.type) where.type = filters.type;
+  if (filters.entityId) where.entityId = filters.entityId;
 
   const term = filters.search?.trim();
   if (term) {
-    where.OR = [{ code: contains(term) }, { name: contains(term) }, { city: contains(term) }];
+    where.OR = [
+      { code: contains(term) },
+      { name: contains(term) },
+      { city: contains(term) },
+      { entity: { name: contains(term) } },
+      { entity: { code: contains(term) } },
+    ];
   }
 
   return where;
@@ -119,20 +130,36 @@ export function findIdByPublicId(publicId: string): Promise<number | null> {
   });
 }
 
-/** Active branches for the assignment dropdowns on the user form. */
-export function listOptions(): Promise<{ publicId: string; code: string; name: string }[]> {
+/** Active branches for workspace and assignment dropdowns. */
+export function listOptions(
+  entityId?: number,
+): Promise<{ publicId: string; code: string; name: string; entityPublicId: string }[]> {
   return withPrismaErrors("branch.listOptions", () =>
-    prisma.branch.findMany({
-      where: { ...NOT_DELETED, status: "ACTIVE" },
-      select: { publicId: true, code: true, name: true },
-      orderBy: { name: "asc" },
-    }),
+    prisma.branch
+      .findMany({
+        where: {
+          ...NOT_DELETED,
+          status: "ACTIVE",
+          ...(entityId !== undefined ? { entityId } : {}),
+        },
+        select: { publicId: true, code: true, name: true, entity: { select: { publicId: true } } },
+        orderBy: { name: "asc" },
+      })
+      .then((rows) =>
+        rows.map((row) => ({
+          publicId: row.publicId,
+          code: row.code,
+          name: row.name,
+          entityPublicId: row.entity.publicId,
+        })),
+      ),
   );
 }
 
 function toCreateData(input: CreateBranchInput): Prisma.BranchCreateInput {
   return {
     organization: { connect: { id: input.organizationId } },
+    entity: { connect: { id: input.entityId } },
     code: input.code,
     codeNormalized: normalizeCode(input.code),
     name: input.name,
@@ -162,6 +189,7 @@ function toUpdateData(input: UpdateBranchInput): Prisma.BranchUpdateInput {
     data.name = input.name;
     data.nameNormalized = normalizeKey(input.name);
   }
+  if (input.entityId !== undefined) data.entity = { connect: { id: input.entityId } };
   if (input.type !== undefined) data.type = input.type;
   if (input.isHeadOffice !== undefined) data.isHeadOffice = input.isHeadOffice;
   if (input.email !== undefined) data.email = input.email;
@@ -234,14 +262,14 @@ export function softDelete(publicId: string): Promise<{ id: number }> {
 }
 
 export function isCodeTaken(
-  organizationId: number,
+  entityId: number,
   code: string,
   exceptPublicId?: string,
 ): Promise<boolean> {
   return withPrismaErrors("branch.isCodeTaken", async () => {
     const found = await prisma.branch.findFirst({
       where: {
-        organizationId,
+        entityId,
         codeNormalized: normalizeCode(code),
         ...(exceptPublicId ? { publicId: { not: exceptPublicId } } : {}),
       },
@@ -252,14 +280,14 @@ export function isCodeTaken(
 }
 
 export function isNameTaken(
-  organizationId: number,
+  entityId: number,
   name: string,
   exceptPublicId?: string,
 ): Promise<boolean> {
   return withPrismaErrors("branch.isNameTaken", async () => {
     const found = await prisma.branch.findFirst({
       where: {
-        organizationId,
+        entityId,
         nameNormalized: normalizeKey(name),
         ...NOT_DELETED,
         ...(exceptPublicId ? { publicId: { not: exceptPublicId } } : {}),
@@ -314,11 +342,13 @@ export function countActive(): Promise<number> {
   );
 }
 
-export function countByStatus(): Promise<{ status: RecordStatus; count: number }[]> {
+export function countByStatus(
+  entityId?: number,
+): Promise<{ status: RecordStatus; count: number }[]> {
   return withPrismaErrors("branch.countByStatus", async () => {
     const grouped = await prisma.branch.groupBy({
       by: ["status"],
-      where: NOT_DELETED,
+      where: { ...NOT_DELETED, ...(entityId !== undefined ? { entityId } : {}) },
       _count: { _all: true },
     });
     return grouped.map((row) => ({ status: row.status, count: row._count._all }));

@@ -322,16 +322,6 @@ export function UsersWorkspace({
             allLabel="All statuses"
           />
           <FilterSelect
-            paramKey={TABLE_QUERY_KEYS.BRANCH}
-            label="Branch"
-            options={options.branches.map((branch) => ({
-              value: branch.publicId,
-              label: branch.name,
-            }))}
-            allLabel="All branches"
-            className="sm:w-52"
-          />
-          <FilterSelect
             paramKey={TABLE_QUERY_KEYS.ROLE}
             label="Role"
             options={options.roles.map((role) => ({

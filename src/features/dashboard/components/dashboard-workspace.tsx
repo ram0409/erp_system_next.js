@@ -1,20 +1,17 @@
 import {
-  Building2Icon,
-  CalendarOffIcon,
-  ClipboardCheckIcon,
-  FolderKanbanIcon,
-  ListTodoIcon,
+  BuildingIcon,
+  LandmarkIcon,
+  UserCogIcon,
   UsersIcon,
 } from "lucide-react";
 
 import { DashboardActivityFeed } from "@/components/dashboard/activity-feed";
-import { DashboardAttentionPanel } from "@/components/dashboard/attention-panel";
 import { DashboardDistributionChart } from "@/components/dashboard/distribution-chart";
 import { DashboardKpiCard } from "@/components/dashboard/kpi-card";
+import { DashboardMenuPanel } from "@/components/dashboard/menu-panel";
 import { DashboardQuickActions } from "@/components/dashboard/quick-actions";
-import { TABLE_QUERY_KEYS } from "@/constants/pagination";
+import type { NavItem } from "@/constants/navigation";
 import { ROUTES } from "@/constants/routes";
-import { ATTENDANCE_DAY_STATUS, LEAVE_STATUS } from "@/constants/status";
 import type { DashboardCapabilities, DashboardOverview } from "@/types/dashboard";
 import { DEFAULT_LOCALE, DEFAULT_TIME_ZONE, formatNumber } from "@/utils/format";
 
@@ -22,6 +19,7 @@ interface DashboardWorkspaceProps {
   readonly overview: DashboardOverview;
   readonly displayName: string;
   readonly capabilities: DashboardCapabilities;
+  readonly menus: readonly NavItem[];
 }
 
 function greetingFor(now: Date): string {
@@ -42,7 +40,12 @@ function greetingFor(now: Date): string {
   return "Good evening";
 }
 
-export function DashboardWorkspace({ overview, displayName, capabilities }: DashboardWorkspaceProps) {
+export function DashboardWorkspace({
+  overview,
+  displayName,
+  capabilities,
+  menus,
+}: DashboardWorkspaceProps) {
   const now = new Date(overview.generatedAt);
   const todayLabel = new Intl.DateTimeFormat(DEFAULT_LOCALE, {
     weekday: "long",
@@ -52,137 +55,116 @@ export function DashboardWorkspace({ overview, displayName, capabilities }: Dash
     timeZone: DEFAULT_TIME_ZONE,
   }).format(now);
 
-  const presentHint =
-    overview.attendanceToday.recorded === 0
-      ? "No attendance marked yet today"
-      : `${formatNumber(overview.attendanceToday.absent)} absent · ${formatNumber(overview.attendanceToday.onLeave)} on leave`;
+  const kpiCards = [
+    capabilities.users.view
+      ? {
+          key: "users",
+          label: "Users",
+          value: overview.users.total,
+          hint: `${formatNumber(overview.users.active)} active · ${formatNumber(overview.users.inactive)} inactive`,
+          icon: UsersIcon,
+          href: ROUTES.USERS,
+          tone: "brand" as const,
+        }
+      : null,
+    capabilities.roles.view
+      ? {
+          key: "roles",
+          label: "Roles",
+          value: overview.roles.total,
+          hint: `${formatNumber(overview.roles.active)} active · ${formatNumber(overview.roles.inactive)} inactive`,
+          icon: UserCogIcon,
+          href: ROUTES.ROLES,
+          tone: "info" as const,
+        }
+      : null,
+    capabilities.branches.view
+      ? {
+          key: "branches",
+          label: "Branches",
+          value: overview.branches.total,
+          hint: `${formatNumber(overview.branches.active)} active · ${formatNumber(overview.branches.inactive)} inactive`,
+          icon: BuildingIcon,
+          href: ROUTES.BRANCHES,
+          tone: "muted" as const,
+        }
+      : null,
+    capabilities.entities.view
+      ? {
+          key: "entities",
+          label: "Entities",
+          value: overview.entities.total,
+          hint: `${formatNumber(overview.entities.active)} active · ${formatNumber(overview.entities.inactive)} inactive`,
+          icon: LandmarkIcon,
+          href: ROUTES.ENTITY,
+          tone: "success" as const,
+        }
+      : null,
+  ].filter((card) => card !== null);
 
   return (
     <div className="space-y-5">
-      <section className="from-primary/14 via-info/8 to-card relative overflow-hidden rounded-2xl border bg-gradient-to-br px-5 py-6 sm:px-7">
+      <section className="dashboard-hero relative overflow-hidden rounded-xl border px-5 py-5 sm:px-6">
         <p className="text-muted-foreground text-sm">{todayLabel}</p>
-        <h2 className="text-foreground mt-1 text-[1.65rem] font-semibold tracking-tight">
+        <h2 className="text-foreground mt-1 text-2xl font-semibold tracking-tight">
           {greetingFor(now)}, {displayName}
         </h2>
         <p className="text-muted-foreground mt-2 max-w-2xl text-sm leading-relaxed">
           {overview.organizationName
-            ? `Operations snapshot for ${overview.organizationName}.`
-            : "Operations snapshot for the organisation."}{" "}
-          Workforce, attendance, leave and delivery in one place.
+            ? `Snapshot for ${overview.organizationName}.`
+            : "Snapshot for the organisation."}{" "}
+          Figures follow the Entity and Branch in the header, and only the menus you can open.
         </p>
-        <div className="mt-5">
+        <div className="mt-4">
           <DashboardQuickActions capabilities={capabilities} />
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <DashboardKpiCard
-          label="Employees"
-          value={overview.employees.total}
-          hint={`${formatNumber(overview.employees.active)} active · ${formatNumber(overview.employees.inactive)} inactive`}
-          icon={UsersIcon}
-          href={capabilities.employees.view ? ROUTES.EMPLOYEES : undefined}
-          tone="brand"
-        />
-        <DashboardKpiCard
-          label="Present today"
-          value={overview.attendanceToday.present}
-          hint={presentHint}
-          icon={ClipboardCheckIcon}
-          href={
-            capabilities.attendance.view
-              ? `${ROUTES.ATTENDANCE}?${TABLE_QUERY_KEYS.STATUS}=${ATTENDANCE_DAY_STATUS.PRESENT}`
-              : undefined
-          }
-          tone="success"
-        />
-        <DashboardKpiCard
-          label="Pending leave"
-          value={overview.leavePending}
-          hint={`${formatNumber(overview.leaveApproved)} approved requests on file`}
-          icon={CalendarOffIcon}
-          href={
-            capabilities.leave.view
-              ? `${ROUTES.LEAVE}?${TABLE_QUERY_KEYS.STATUS}=${LEAVE_STATUS.PENDING}`
-              : undefined
-          }
-          tone="warning"
-        />
-        <DashboardKpiCard
-          label="Active projects"
-          value={overview.projectsActive}
-          hint={`${formatNumber(overview.projectsTotal)} projects in the portfolio`}
-          icon={FolderKanbanIcon}
-          href={capabilities.projects.view ? ROUTES.PROJECTS : undefined}
-          tone="info"
-        />
-        <DashboardKpiCard
-          label="Open tasks"
-          value={overview.tasksOpen}
-          hint={
-            overview.tasksBlocked > 0
-              ? `${formatNumber(overview.tasksBlocked)} blocked · ${formatNumber(overview.tasksTotal)} total`
-              : `${formatNumber(overview.tasksTotal)} tasks in all statuses`
-          }
-          icon={ListTodoIcon}
-          href={capabilities.tasks.view ? ROUTES.TASKS : undefined}
-          tone="brand"
-        />
-        <DashboardKpiCard
-          label="Branches"
-          value={overview.branches.total}
-          hint={`${formatNumber(overview.branches.active)} active · ${formatNumber(overview.branches.inactive)} inactive`}
-          icon={Building2Icon}
-          href={capabilities.branches.view ? ROUTES.BRANCHES : undefined}
-          tone="muted"
-        />
-      </section>
+      {kpiCards.length > 0 ? (
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {kpiCards.map((card) => (
+            <DashboardKpiCard
+              key={card.key}
+              label={card.label}
+              value={card.value}
+              hint={card.hint}
+              icon={card.icon}
+              href={card.href}
+              tone={card.tone}
+            />
+          ))}
+        </section>
+      ) : null}
 
-      <section className="grid gap-4 xl:grid-cols-3">
-        <div className="grid gap-4 xl:col-span-2 lg:grid-cols-2">
+      {capabilities.users.view ? (
+        <section className="grid gap-4 lg:grid-cols-2">
           <DashboardDistributionChart
-            title="Projects by status"
-            description="How work is spread across the portfolio."
-            emptyTitle="No projects to chart yet"
-            items={overview.projectsByStatus}
-            linkSlices={capabilities.projects.view}
-            variant="mix"
+            title="People by branch"
+            description="Accounts in the selected workspace branch."
+            emptyTitle="No people to chart yet"
+            items={overview.usersByBranch}
+            linkSlices
           />
           <DashboardDistributionChart
-            title="Tasks by status"
-            description="Delivery pipeline across all projects."
-            emptyTitle="No tasks to chart yet"
-            items={overview.tasksByStatus}
-            linkSlices={capabilities.tasks.view}
-            variant="mix"
+            title="People by role"
+            description="Accounts in this workspace, grouped by role."
+            emptyTitle="No people to chart yet"
+            items={overview.usersByRole}
+            linkSlices
           />
+        </section>
+      ) : null}
+
+      <section className={capabilities.auditLogs.view ? "grid gap-4 xl:grid-cols-3" : undefined}>
+        <div className={capabilities.auditLogs.view ? "xl:col-span-1" : undefined}>
+          <DashboardMenuPanel items={menus} />
         </div>
-        <DashboardAttentionPanel
-          leavePending={overview.leavePending}
-          tasksBlocked={overview.tasksBlocked}
-          holidays={overview.upcomingHolidays}
-          capabilities={capabilities}
-        />
+        {capabilities.auditLogs.view ? (
+          <div className="xl:col-span-2">
+            <DashboardActivityFeed items={overview.activity} />
+          </div>
+        ) : null}
       </section>
-
-      <section className="grid gap-4 lg:grid-cols-2">
-        <DashboardDistributionChart
-          title="People by branch"
-          description="Live accounts assigned to each branch."
-          emptyTitle="No people to chart yet"
-          items={overview.usersByBranch}
-          linkSlices={capabilities.users.view}
-        />
-        <DashboardDistributionChart
-          title="People by role"
-          description="Live accounts assigned to each role."
-          emptyTitle="No people to chart yet"
-          items={overview.usersByRole}
-          linkSlices={capabilities.users.view}
-        />
-      </section>
-
-      <DashboardActivityFeed items={overview.activity} />
     </div>
   );
 }

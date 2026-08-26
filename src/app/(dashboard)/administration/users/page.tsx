@@ -33,9 +33,8 @@ export default async function UsersPage({
   const [result, options] = await Promise.all([listUsers(params), getAssignmentOptions()]);
   const search = resolveSearchTerm(params);
   const status = resolveAllowedValue(params, TABLE_QUERY_KEYS.STATUS, RECORD_STATUS_VALUES);
-  const branchPublicId = resolveQueryValue(params, TABLE_QUERY_KEYS.BRANCH);
   const rolePublicId = resolveQueryValue(params, TABLE_QUERY_KEYS.ROLE);
-  const isFiltered = Boolean(search || status || branchPublicId || rolePublicId);
+  const isFiltered = Boolean(search || status || rolePublicId);
 
   return (
     <PageContainer>
@@ -53,7 +52,6 @@ export default async function UsersPage({
         exportFilters={{
           ...(search ? { search } : {}),
           ...(status ? { status } : {}),
-          ...(branchPublicId ? { branchPublicId } : {}),
           ...(rolePublicId ? { rolePublicId } : {}),
         }}
       />

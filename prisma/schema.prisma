@@ -146,12 +146,46 @@ model Organization {
   @@map("organizations")
 }
 
+model BusinessEntity {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(cuid(2)) @map("public_id")
+
+  code           String @db.VarChar(32)
+  codeNormalized String @unique @map("code_normalized") @db.VarChar(32)
+  name           String @db.VarChar(160)
+  nameNormalized String @unique @map("name_normalized") @db.VarChar(160)
+  legalName      String? @map("legal_name") @db.VarChar(200)
+
+  email       String? @db.VarChar(160)
+  phone       String? @db.VarChar(32)
+  taxId       String? @map("tax_id") @db.VarChar(64)
+  addressLine String? @map("address_line") @db.VarChar(240)
+  city        String? @db.VarChar(80)
+  state       String? @db.VarChar(80)
+  postalCode  String? @map("postal_code") @db.VarChar(20)
+  country     String? @db.VarChar(80)
+  notes       String? @db.VarChar(400)
+
+  status RecordStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  branches Branch[]
+
+  @@index([status])
+  @@map("business_entities")
+}
+
 model Branch {
   id       Int    @id @default(autoincrement())
   publicId String @unique @default(cuid(2)) @map("public_id")
 
   organizationId Int          @map("organization_id")
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  entityId Int            @map("entity_id")
+  entity   BusinessEntity @relation(fields: [entityId], references: [id], onDelete: Restrict)
 
   code           String @db.VarChar(32)
   codeNormalized String @map("code_normalized") @db.VarChar(32)
@@ -179,9 +213,10 @@ model Branch {
   users       User[]
   departments Department[]
 
-  // Scoped to the organization: two legal entities may legitimately both have a "HO".
-  @@unique([organizationId, codeNormalized])
+  // Scoped to the legal entity: two entities may legitimately both have a "HO".
+  @@unique([entityId, codeNormalized])
   @@index([organizationId])
+  @@index([entityId])
   @@index([status])
   @@index([deletedAt])
   @@index([nameNormalized])

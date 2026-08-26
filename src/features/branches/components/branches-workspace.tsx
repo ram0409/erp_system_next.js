@@ -41,6 +41,7 @@ import { BranchFormDialog, type BranchFormMode } from "@/features/branches/compo
 import { useTableParams } from "@/hooks/use-table-params";
 import { cn } from "@/lib/utils";
 import type { BranchDetail, BranchListItem } from "@/types/branch";
+import type { EntityOption } from "@/types/entity";
 import type { PaginationMeta } from "@/types/pagination";
 import { EMPTY_VALUE_PLACEHOLDER, formatDate } from "@/utils/format";
 
@@ -49,10 +50,12 @@ interface BranchesWorkspaceProps {
   readonly meta: PaginationMeta;
   readonly isFiltered: boolean;
   readonly actorBranchPublicId: string;
+  readonly entities: readonly EntityOption[];
   readonly exportFilters: {
     readonly search?: string;
     readonly status?: BranchListItem["status"];
     readonly type?: BranchListItem["type"];
+    readonly entityPublicId?: string;
   };
 }
 
@@ -76,6 +79,7 @@ export function BranchesWorkspace({
   meta,
   isFiltered,
   actorBranchPublicId,
+  entities,
   exportFilters,
 }: BranchesWorkspaceProps) {
   const router = useRouter();
@@ -142,6 +146,7 @@ export function BranchesWorkspace({
         ...(exportFilters.search ? { search: exportFilters.search } : {}),
         ...(exportFilters.status ? { status: exportFilters.status } : {}),
         ...(exportFilters.type ? { type: exportFilters.type } : {}),
+        ...(exportFilters.entityPublicId ? { entityPublicId: exportFilters.entityPublicId } : {}),
       });
 
       if (!result.success) {
@@ -178,6 +183,12 @@ export function BranchesWorkspace({
         id: "name",
         header: <SortableColumnHeader field="name" label="Name" />,
         cell: (row) => row.name,
+      },
+      {
+        id: "entity",
+        header: "Entity",
+        cell: (row) => row.entity.name,
+        hideBelowMd: true,
       },
       {
         id: "type",
@@ -291,7 +302,7 @@ export function BranchesWorkspace({
     <>
       <Card className={cn(isPending && "opacity-70")}>
         <FilterBar hasActiveFilters={isFiltered}>
-          <SearchInput placeholder="Search code, name or city" label="Search branches" />
+          <SearchInput placeholder="Search code, name, city or entity" label="Search branches" />
           <FilterSelect
             paramKey={TABLE_QUERY_KEYS.STATUS}
             label="Status"
@@ -339,6 +350,7 @@ export function BranchesWorkspace({
         open={formOpen}
         mode={formMode}
         detail={detail}
+        entities={entities}
         isLoading={detailPending}
         onOpenChange={setFormOpen}
         onSuccess={handleFormSuccess}

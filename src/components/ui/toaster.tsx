@@ -19,7 +19,7 @@ export function Toaster() {
       toastOptions={{
         classNames: {
           toast:
-            "!rounded-xl !border !border-border !bg-card !text-card-foreground !shadow-lg !text-sm",
+            "!rounded-md !border !border-border !bg-card !text-card-foreground !shadow-lg !text-sm",
           description: "!text-muted-foreground",
           actionButton: "!bg-primary !text-primary-foreground",
           cancelButton: "!bg-muted !text-muted-foreground",

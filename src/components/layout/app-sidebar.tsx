@@ -3,7 +3,6 @@
 import { PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
 import Link from "next/link";
 
-import { BrandAtmosphere } from "@/components/layout/brand-atmosphere";
 import { NavList } from "@/components/layout/nav-list";
 import { Button } from "@/components/ui/button";
 import type { NavItem } from "@/constants/navigation";
@@ -20,53 +19,73 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ items, appName }: AppSidebarProps) {
-  // The server renders the expanded sidebar; the stored preference is adopted on
-  // the client through the external-store subscription.
   const [collapsed, setCollapsed] = usePersistedBoolean(COLLAPSE_STORAGE_KEY, false);
+  const mark = appName.trim().charAt(0).toUpperCase() || "E";
 
   return (
     <aside
       data-collapsed={collapsed}
       className={cn(
-        "sidebar-canvas border-sidebar-border relative sticky top-0 isolate hidden h-dvh shrink-0 flex-col overflow-hidden border-r transition-[width] duration-200 lg:flex",
-        collapsed ? "w-[4.25rem]" : "w-64",
+        "bg-sidebar border-sidebar-border text-sidebar-foreground relative sticky top-0 hidden h-dvh shrink-0 flex-col overflow-hidden border-r transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] lg:flex",
+        collapsed ? "w-[4.25rem]" : "w-60",
       )}
     >
-      <BrandAtmosphere />
-
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-white/10 to-transparent"
+        aria-hidden="true"
+      />
       <div
         className={cn(
-          "border-sidebar-border relative z-10 flex h-14 items-center border-b px-3",
+          "border-sidebar-border relative flex h-14 items-center gap-2.5 border-b px-3",
           collapsed ? "justify-center" : "justify-between",
         )}
       >
-        {collapsed ? null : (
-          <Link
-            href={ROUTES.DASHBOARD}
-            className="text-sidebar-accent-foreground focus-visible:ring-sidebar-accent-foreground/70 flex min-w-0 items-center gap-2.5 rounded-sm text-sm font-semibold tracking-tight focus-visible:ring-2 focus-visible:outline-none"
-          >
-            <span
-              className="brand-fill size-7 shrink-0 rounded-xl shadow-none"
-              aria-hidden="true"
-            />
-            <span className="truncate">{appName}</span>
-          </Link>
-        )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setCollapsed(!collapsed)}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          aria-pressed={collapsed}
-          className="text-sidebar-muted-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent size-8"
+        <Link
+          href={ROUTES.DASHBOARD}
+          className="text-sidebar-accent-foreground focus-visible:ring-sidebar-accent-foreground/50 group/brand flex min-w-0 items-center gap-2.5 rounded-md focus-visible:ring-2 focus-visible:outline-none"
         >
-          {collapsed ? <PanelLeftOpenIcon /> : <PanelLeftCloseIcon />}
-        </Button>
+          <span
+            className="bg-sidebar-active text-sidebar-active-foreground flex size-8 shrink-0 items-center justify-center rounded-md text-xs font-semibold tracking-wide shadow-[0_0_16px_color-mix(in_oklch,var(--sidebar-active)_45%,transparent)] transition-transform duration-200 group-hover/brand:scale-105"
+            aria-hidden="true"
+          >
+            {mark}
+          </span>
+          {collapsed ? <span className="sr-only">{appName}</span> : (
+            <span className="truncate text-sm font-semibold tracking-tight">{appName}</span>
+          )}
+        </Link>
+        {collapsed ? null : (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setCollapsed(true)}
+            aria-label="Collapse sidebar"
+            aria-pressed={false}
+            className="text-sidebar-muted-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent size-8 transition-transform duration-200 hover:scale-105"
+          >
+            <PanelLeftCloseIcon />
+          </Button>
+        )}
       </div>
 
-      <div className="relative z-10 flex-1 scrollbar-thin overflow-y-auto py-3">
+      <div className="scrollbar-thin flex-1 overflow-y-auto py-3">
         <NavList items={items} collapsed={collapsed} />
       </div>
+
+      {collapsed ? (
+        <div className="border-sidebar-border flex justify-center border-t py-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setCollapsed(false)}
+            aria-label="Expand sidebar"
+            aria-pressed
+            className="text-sidebar-muted-foreground hover:text-sidebar-accent-foreground hover:bg-sidebar-accent size-8 transition-transform duration-200 hover:scale-105"
+          >
+            <PanelLeftOpenIcon />
+          </Button>
+        </div>
+      ) : null}
     </aside>
   );
 }

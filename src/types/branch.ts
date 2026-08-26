@@ -18,6 +18,11 @@ export interface BranchListItem {
   readonly status: RecordStatus;
   readonly createdAt: string;
   readonly userCount: number;
+  readonly entity: {
+    readonly publicId: string;
+    readonly code: string;
+    readonly name: string;
+  };
 }
 
 export interface BranchDetail extends BranchListItem {

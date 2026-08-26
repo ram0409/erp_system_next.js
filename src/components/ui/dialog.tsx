@@ -53,7 +53,7 @@ export function DialogContent({
         data-slot="dialog-content"
         className={cn(
           "fixed top-1/2 left-1/2 z-50 flex max-h-[92dvh] w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col",
-          "border-border bg-card rounded-2xl border shadow-[0_32px_80px_-24px_oklch(0.28_0.14_290_/_0.35)] outline-none",
+          "border-border bg-card rounded-lg border shadow-lg outline-none",
           "data-[state=open]:animate-scale-in data-[state=closed]:animate-scale-out",
           contentSizes[size],
           className,

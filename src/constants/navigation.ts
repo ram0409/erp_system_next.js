@@ -18,14 +18,8 @@ export type NavIconName =
   | "branches"
   | "departments"
   | "designations"
-  | "hr"
-  | "employees"
-  | "attendance"
-  | "leave"
-  | "holidays"
-  | "projects"
-  | "tasks"
-  | "worklogs"
+  | "organization"
+  | "entity"
   | "settings"
   | "general-settings"
   | "profile"
@@ -41,6 +35,10 @@ export interface NavLeaf {
    * screens such as Profile that are not gated by a module permission.
    */
   readonly permission?: PermissionKey;
+  /** Shown if the actor holds any of these. Takes precedence over `permission`. */
+  readonly anyOf?: readonly PermissionKey[];
+  /** Extra paths that keep this item highlighted (hubs with child screens). */
+  readonly matchHrefs?: readonly string[];
 }
 
 export interface NavGroup {
@@ -112,69 +110,11 @@ export const NAVIGATION: readonly NavItem[] = [
     ],
   },
   {
-    kind: "group",
-    id: "hr",
-    label: "HR Management",
-    icon: "hr",
-    children: [
-      {
-        kind: "link",
-        label: "Employees",
-        href: ROUTES.EMPLOYEES,
-        icon: "employees",
-        permission: PERMISSIONS.EMPLOYEES.VIEW,
-      },
-      {
-        kind: "link",
-        label: "Attendance",
-        href: ROUTES.ATTENDANCE,
-        icon: "attendance",
-        permission: PERMISSIONS.ATTENDANCE.VIEW,
-      },
-      {
-        kind: "link",
-        label: "Leave Management",
-        href: ROUTES.LEAVE,
-        icon: "leave",
-        permission: PERMISSIONS.LEAVE.VIEW,
-      },
-      {
-        kind: "link",
-        label: "Holidays",
-        href: ROUTES.HOLIDAYS,
-        icon: "holidays",
-        permission: PERMISSIONS.HOLIDAYS.VIEW,
-      },
-    ],
-  },
-  {
-    kind: "group",
-    id: "projects",
-    label: "Projects",
-    icon: "projects",
-    children: [
-      {
-        kind: "link",
-        label: "Projects",
-        href: ROUTES.PROJECTS,
-        icon: "projects",
-        permission: PERMISSIONS.PROJECTS.VIEW,
-      },
-      {
-        kind: "link",
-        label: "Tasks",
-        href: ROUTES.TASKS,
-        icon: "tasks",
-        permission: PERMISSIONS.TASKS.VIEW,
-      },
-      {
-        kind: "link",
-        label: "Worklogs",
-        href: ROUTES.WORKLOGS,
-        icon: "worklogs",
-        permission: PERMISSIONS.WORKLOGS.VIEW,
-      },
-    ],
+    kind: "link",
+    label: "Entity",
+    href: ROUTES.ENTITY,
+    icon: "entity",
+    permission: PERMISSIONS.ENTITIES.VIEW,
   },
   {
     kind: "group",
@@ -207,6 +147,9 @@ export const NAVIGATION: readonly NavItem[] = [
 ];
 
 function canSeeLeaf(leaf: NavLeaf, can: (permission: PermissionKey) => boolean): boolean {
+  if (leaf.anyOf && leaf.anyOf.length > 0) {
+    return leaf.anyOf.some((permission) => can(permission));
+  }
   return leaf.permission === undefined || can(leaf.permission);
 }
 
@@ -266,4 +209,21 @@ export function firstAccessibleAdminHref(
   can: (permission: PermissionKey) => boolean,
 ): string | null {
   return firstAccessibleGroupHref("administration", can);
+}
+
+/** Flattened links, including children of groups, in sidebar order. */
+export function navigationLeaves(items: readonly NavItem[]): NavLeaf[] {
+  const leaves: NavLeaf[] = [];
+  for (const item of items) {
+    if (item.kind === "link") {
+      leaves.push(item);
+    } else {
+      leaves.push(...item.children);
+    }
+  }
+  return leaves;
+}
+
+export function navigationHasHref(items: readonly NavItem[], href: string): boolean {
+  return navigationLeaves(items).some((leaf) => leaf.href === href);
 }

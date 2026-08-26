@@ -94,6 +94,11 @@ export const getActorContext = cache(async (): Promise<ActorContext | null> => {
       publicId: actor.branch.publicId,
       code: actor.branch.code,
       name: actor.branch.name,
+      entity: {
+        publicId: actor.branch.entity.publicId,
+        code: actor.branch.entity.code,
+        name: actor.branch.entity.name,
+      },
     },
   };
 
@@ -101,6 +106,7 @@ export const getActorContext = cache(async (): Promise<ActorContext | null> => {
     userId: actor.id,
     roleId: actor.roleId,
     branchId: actor.branchId,
+    entityId: actor.branch.entityId,
     user,
     permissions: new Set(toPermissionKeys(actor)),
     ipAddress: await getRequestIp(),

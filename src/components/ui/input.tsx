@@ -8,7 +8,7 @@ export function Input({ className, type = "text", ...props }: React.ComponentPro
       type={type}
       data-slot="input"
       className={cn(
-        "border-input bg-surface-muted flex h-10 w-full rounded-xl border px-3.5 py-1 text-sm shadow-none transition-colors",
+        "border-input bg-surface flex h-10 w-full rounded-md border px-3 py-1 text-sm shadow-none transition-colors",
         "placeholder:text-muted-foreground",
         "focus-visible:border-ring focus-visible:ring-ring/25 focus-visible:ring-2 focus-visible:outline-none",
         "disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-70",

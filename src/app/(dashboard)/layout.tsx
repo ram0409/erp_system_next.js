@@ -15,6 +15,7 @@ import { NAVIGATION, filterNavigation } from "@/constants/navigation";
 import { ROUTES } from "@/constants/routes";
 import { permissionChecker, toPermissionSnapshot } from "@/lib/authorization";
 import { getActorContext, requiresPasswordChange } from "@/lib/session";
+import { getWorkspaceSwitcher } from "@/services/workspace-service";
 
 function PageFallback() {
   return (
@@ -55,6 +56,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   const navItems = filterNavigation(NAVIGATION, permissionChecker(actor));
   const appName = publicEnv.NEXT_PUBLIC_APP_NAME;
+  const workspace = await getWorkspaceSwitcher(actor);
 
   return (
     <PermissionsProvider value={toPermissionSnapshot(actor)}>
@@ -62,7 +64,12 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       <div className="app-canvas flex min-h-dvh">
         <AppSidebar items={navItems} appName={appName} />
         <div className="flex min-w-0 flex-1 flex-col">
-          <AppHeader user={actor.user} navItems={navItems} appName={appName} />
+          <AppHeader
+            user={actor.user}
+            navItems={navItems}
+            appName={appName}
+            workspace={workspace}
+          />
           <main id="main-content" className="flex-1">
             <Suspense fallback={<PageFallback />}>{children}</Suspense>
           </main>

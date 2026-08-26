@@ -22,6 +22,7 @@ async function auditMeta() {
 
 function revalidateBranches(): void {
   revalidatePath(ROUTES.BRANCHES);
+  revalidatePath(ROUTES.ENTITY);
 }
 
 export const getBranchAction = defineAction({

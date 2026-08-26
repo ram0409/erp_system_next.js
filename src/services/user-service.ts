@@ -23,6 +23,7 @@ import {
 } from "@/lib/pagination";
 import { hashPassword } from "@/lib/password";
 import { issuePasswordResetToken } from "@/lib/password-reset-token";
+import { getWorkspaceScope } from "@/lib/workspace-scope";
 import * as auditRepository from "@/repositories/audit-repository";
 import * as branchRepository from "@/repositories/branch-repository";
 import * as departmentRepository from "@/repositories/department-repository";
@@ -38,7 +39,6 @@ import {
 import type { PaginatedResult, RawSearchParams } from "@/types/pagination";
 import type { ActorContext } from "@/types/session";
 import type {
-  EmployeeOption,
   UserAssignmentOptions,
   UserDetail,
   UserExportResult,
@@ -264,31 +264,41 @@ async function resolveIds(
   };
 }
 
+async function workspaceBranchFilter(): Promise<{ branchId?: number }> {
+  const scope = await getWorkspaceScope();
+  return scope ? { branchId: scope.branchId } : {};
+}
+
 async function filtersFromSearchParams(
   searchParams: RawSearchParams,
   options: { readonly excludeSuperAdmin?: boolean } = {},
 ) {
   const search = resolveSearchTerm(searchParams);
   const status = resolveAllowedValue(searchParams, TABLE_QUERY_KEYS.STATUS, RECORD_STATUS_VALUES);
-  const ids = await resolveIds(
-    resolveQueryValue(searchParams, TABLE_QUERY_KEYS.BRANCH),
-    resolveQueryValue(searchParams, TABLE_QUERY_KEYS.ROLE),
-  );
+  const [ids, workspace] = await Promise.all([
+    resolveIds(undefined, resolveQueryValue(searchParams, TABLE_QUERY_KEYS.ROLE)),
+    workspaceBranchFilter(),
+  ]);
 
   return {
     ...(search ? { search } : {}),
     ...(status ? { status } : {}),
     ...ids,
+    ...workspace,
     ...(options.excludeSuperAdmin ? { excludeSuperAdmin: true } : {}),
   };
 }
 
 async function filtersFromExportInput(filters: ExportUsersInput) {
-  const ids = await resolveIds(filters.branchPublicId, filters.rolePublicId);
+  const [ids, workspace] = await Promise.all([
+    resolveIds(undefined, filters.rolePublicId),
+    workspaceBranchFilter(),
+  ]);
   return {
     ...(filters.search ? { search: filters.search } : {}),
     ...(filters.status ? { status: filters.status } : {}),
     ...ids,
+    ...workspace,
     ...(filters.excludeSuperAdmin ? { excludeSuperAdmin: true } : {}),
   };
 }
@@ -308,15 +318,12 @@ export async function listUsers(
   };
 }
 
-export function listEmployeeOptions(): Promise<EmployeeOption[]> {
-  return userRepository.listEmployeeOptions();
-}
-
 export async function getAssignmentOptions(): Promise<UserAssignmentOptions> {
+  const scope = await getWorkspaceScope();
   const [branches, roles, departments, designations, superAdminCount] = await Promise.all([
-    branchRepository.listOptions(),
+    branchRepository.listOptions(scope?.entityId),
     roleRepository.listOptions(),
-    departmentRepository.listOptions(),
+    departmentRepository.listOptions(scope?.branchId),
     designationRepository.listOptions(),
     userRepository.countSuperAdmins(),
   ]);
