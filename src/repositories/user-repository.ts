@@ -30,7 +30,6 @@ const ACTOR_SELECT = {
   firstName: true,
   lastName: true,
   email: true,
-  designation: { select: { name: true } },
   avatarPath: true,
   status: true,
   tokenVersion: true,
@@ -85,8 +84,6 @@ const LIST_SELECT = {
   createdAt: true,
   role: { select: { publicId: true, name: true, slug: true, isSuperAdmin: true } },
   branch: { select: { publicId: true, code: true, name: true } },
-  department: { select: { publicId: true, code: true, name: true } },
-  designation: { select: { publicId: true, code: true, name: true } },
 } satisfies Prisma.UserSelect;
 
 const DETAIL_SELECT = {
@@ -138,8 +135,6 @@ export interface CreateUserInput {
   readonly passwordHash: string;
   readonly phone?: string | null;
   readonly joinDate?: Date | null;
-  readonly departmentId?: number | null;
-  readonly designationId?: number | null;
   readonly branchId: number;
   readonly roleId: number;
   readonly status: RecordStatus;
@@ -153,8 +148,6 @@ export interface UpdateUserInput {
   readonly email?: string;
   readonly phone?: string | null;
   readonly joinDate?: Date | null;
-  readonly departmentId?: number | null;
-  readonly designationId?: number | null;
   readonly branchId?: number;
   readonly roleId?: number;
   readonly status?: RecordStatus;
@@ -186,8 +179,6 @@ function buildListWhere(filters: UserListFilters): Prisma.UserWhereInput {
       { lastName: contains(term) },
       { email: contains(term) },
       { employeeCode: contains(term) },
-      { department: { name: contains(term) } },
-      { designation: { name: contains(term) } },
     ];
   }
 
@@ -321,8 +312,6 @@ export function create(input: CreateUserInput): Promise<UserDetailRow> {
         passwordHash: input.passwordHash,
         phone: input.phone ?? null,
         joinDate: input.joinDate ?? null,
-        departmentId: input.departmentId ?? null,
-        designationId: input.designationId ?? null,
         branchId: input.branchId,
         roleId: input.roleId,
         status: input.status,
@@ -349,16 +338,6 @@ export function update(publicId: string, input: UpdateUserInput): Promise<UserDe
   if (input.lastName !== undefined) data.lastName = input.lastName;
   if (input.phone !== undefined) data.phone = input.phone;
   if (input.joinDate !== undefined) data.joinDate = input.joinDate;
-  if (input.departmentId !== undefined) {
-    data.department =
-      input.departmentId === null ? { disconnect: true } : { connect: { id: input.departmentId } };
-  }
-  if (input.designationId !== undefined) {
-    data.designation =
-      input.designationId === null
-        ? { disconnect: true }
-        : { connect: { id: input.designationId } };
-  }
   if (input.status !== undefined) data.status = input.status;
   if (input.branchId !== undefined) data.branch = { connect: { id: input.branchId } };
   if (input.roleId !== undefined) data.role = { connect: { id: input.roleId } };

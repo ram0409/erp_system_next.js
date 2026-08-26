@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { firstAccessibleGroupHref } from "@/constants/navigation";
+import { firstAccessibleSettingsHref } from "@/constants/navigation";
 import { ROUTES } from "@/constants/routes";
 import { permissionChecker } from "@/lib/authorization";
 import { getActorContext } from "@/lib/session";
@@ -13,5 +13,5 @@ export default async function SettingsPage() {
     redirect(ROUTES.LOGIN);
   }
 
-  redirect(firstAccessibleGroupHref("settings", permissionChecker(actor)) ?? ROUTES.DASHBOARD);
+  redirect(firstAccessibleSettingsHref(permissionChecker(actor)) ?? ROUTES.DASHBOARD);
 }

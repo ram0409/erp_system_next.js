@@ -84,8 +84,6 @@ export const USER_MESSAGES = {
   SUPER_ADMIN_EDIT: "Only a Super Admin can change a Super Admin account.",
   BRANCH_INACTIVE: "Assign an active branch.",
   ROLE_INACTIVE: "Assign an active role.",
-  DEPARTMENT_INACTIVE: "Assign an active department, or leave it empty.",
-  DESIGNATION_INACTIVE: "Assign an active designation, or leave it empty.",
   RESET_INACTIVE: "Activate the account before sending a password reset.",
   RESET_COOLDOWN: "A reset email was sent recently. Wait a minute before sending another.",
   RESET_EMAIL_FAILED: "The password reset email could not be sent. Try again later.",
@@ -103,21 +101,6 @@ export const PROFILE_MESSAGES = {
 export const SETTINGS_MESSAGES = {
   ORGANIZATION_MISSING: "Organisation settings could not be loaded.",
   CODE_TAKEN: "Company code is already in use.",
-} as const;
-
-export const DEPARTMENT_MESSAGES = {
-  CODE_TAKEN: "Department code is already in use.",
-  NAME_TAKEN: "Department name is already in use.",
-  USERS_ASSIGNED_DEACTIVATE: "Reassign employees before deactivating this department.",
-  USERS_ASSIGNED_DELETE: "Reassign employees before deleting this department.",
-  BRANCH_INACTIVE: "Assign an active branch, or leave branch empty.",
-} as const;
-
-export const DESIGNATION_MESSAGES = {
-  CODE_TAKEN: "Designation code is already in use.",
-  NAME_TAKEN: "Designation name is already in use.",
-  USERS_ASSIGNED_DEACTIVATE: "Reassign employees before deactivating this designation.",
-  USERS_ASSIGNED_DELETE: "Reassign employees before deleting this designation.",
 } as const;
 
 export const ENTITY_MESSAGES = {

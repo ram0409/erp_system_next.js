@@ -17,7 +17,7 @@ import { PROFILE_MESSAGES } from "@/constants/messages";
 import { removeAvatarAction, uploadAvatarAction } from "@/features/profile/actions";
 import { avatarRejectionMessage } from "@/lib/avatar";
 import type { SessionUser } from "@/types/session";
-import { EMPTY_VALUE_PLACEHOLDER, formatFullName, getInitials } from "@/utils/format";
+import { formatFullName, getInitials } from "@/utils/format";
 
 interface ProfileIdentityCardProps {
   readonly user: SessionUser;
@@ -29,7 +29,6 @@ export function ProfileIdentityCard({ user }: ProfileIdentityCardProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const fullName = formatFullName(user.firstName, user.lastName);
-  const designation = user.designation?.trim() || EMPTY_VALUE_PLACEHOLDER;
   const displayUrl = previewUrl ?? user.avatarUrl;
 
   function openFilePicker() {
@@ -127,8 +126,6 @@ export function ProfileIdentityCard({ user }: ProfileIdentityCardProps) {
             </div>
             <p className="text-muted-foreground mt-1 truncate text-sm">{user.email}</p>
             <p className="text-muted-foreground mt-0.5 truncate text-sm">
-              {designation}
-              <span className="text-border mx-1.5">·</span>
               {user.role.name}
               <span className="text-border mx-1.5">·</span>
               {user.branch.name}

@@ -3,8 +3,8 @@ import "server-only";
 import { redirect } from "next/navigation";
 
 import type { PermissionKey } from "@/constants/permissions";
-import { ROUTES } from "@/constants/routes";
 import { hasAllPermissions, hasAnyPermission } from "@/lib/authorization";
+import { loginHref } from "@/lib/login-href";
 import { getActorContext } from "@/lib/session";
 import type { ActorContext } from "@/types/session";
 
@@ -27,7 +27,7 @@ export async function requirePageAccess(
   const actor = await getActorContext();
 
   if (!actor) {
-    redirect(ROUTES.LOGIN);
+    redirect(loginHref());
   }
 
   const required = Array.isArray(permission) ? permission : [permission as PermissionKey];

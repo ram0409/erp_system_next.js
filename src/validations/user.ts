@@ -43,8 +43,6 @@ const userFieldsSchema = z.object({
   lastName: personNameSchema,
   email: emailSchema,
   phone: optionalPhoneField,
-  departmentPublicId: z.string().trim().max(32),
-  designationPublicId: z.string().trim().max(32),
   joinDate: z.string().trim().max(10),
   branchPublicId: publicIdSchema,
   rolePublicId: publicIdSchema,

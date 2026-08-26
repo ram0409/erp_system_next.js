@@ -23,6 +23,8 @@ async function auditMeta() {
 function revalidateBranches(): void {
   revalidatePath(ROUTES.BRANCHES);
   revalidatePath(ROUTES.ENTITY);
+  revalidatePath(ROUTES.DASHBOARD);
+  revalidatePath("/", "layout");
 }
 
 export const getBranchAction = defineAction({

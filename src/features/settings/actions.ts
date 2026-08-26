@@ -34,11 +34,3 @@ export const updateOrganizationSettingsAction = defineAction({
   successMessage: SUCCESS_MESSAGES.UPDATED,
   handler: persistOrganizationSettings,
 });
-
-export const updateOrganizationProfileAction = defineAction({
-  name: "organization.update",
-  permission: PERMISSIONS.ORGANIZATION.EDIT,
-  schema: updateOrganizationSettingsSchema,
-  successMessage: SUCCESS_MESSAGES.UPDATED,
-  handler: persistOrganizationSettings,
-});

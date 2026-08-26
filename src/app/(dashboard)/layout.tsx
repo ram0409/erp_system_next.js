@@ -7,6 +7,7 @@ import { AppSidebar } from "@/components/layout/app-sidebar";
 import { NavigationProgress } from "@/components/layout/navigation-progress";
 import { PageContainer } from "@/components/layout/page-container";
 import { PermissionsProvider } from "@/components/providers/permissions-provider";
+import { SessionExpiryGuard } from "@/components/providers/session-expiry-guard";
 import { LoadingState } from "@/components/shared/loading-state";
 import { Card } from "@/components/ui/card";
 import { publicEnv } from "@/config/public-env";
@@ -14,7 +15,8 @@ import { CURRENT_PATH_HEADER } from "@/constants/auth";
 import { NAVIGATION, filterNavigation } from "@/constants/navigation";
 import { ROUTES } from "@/constants/routes";
 import { permissionChecker, toPermissionSnapshot } from "@/lib/authorization";
-import { getActorContext, requiresPasswordChange } from "@/lib/session";
+import { loginHref } from "@/lib/login-href";
+import { getActorContext, getSessionExpiresAt, requiresPasswordChange } from "@/lib/session";
 import { getWorkspaceSwitcher } from "@/services/workspace-service";
 
 function PageFallback() {
@@ -39,7 +41,8 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const actor = await getActorContext();
 
   if (!actor) {
-    redirect(ROUTES.LOGIN);
+    const headerList = await headers();
+    redirect(loginHref(headerList.get(CURRENT_PATH_HEADER)));
   }
 
   // An account still on its generated password is confined to the change-password
@@ -57,9 +60,11 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const navItems = filterNavigation(NAVIGATION, permissionChecker(actor));
   const appName = publicEnv.NEXT_PUBLIC_APP_NAME;
   const workspace = await getWorkspaceSwitcher(actor);
+  const sessionExpiresAt = await getSessionExpiresAt();
 
   return (
     <PermissionsProvider value={toPermissionSnapshot(actor)}>
+      {sessionExpiresAt ? <SessionExpiryGuard expiresAt={sessionExpiresAt.toISOString()} /> : null}
       <NavigationProgress />
       <div className="app-canvas flex min-h-dvh">
         <AppSidebar items={navItems} appName={appName} />

@@ -29,8 +29,6 @@ const EMPTY_VALUES: CreateUserInput = {
   lastName: "",
   email: "",
   phone: "",
-  departmentPublicId: "",
-  designationPublicId: "",
   joinDate: "",
   branchPublicId: "",
   rolePublicId: "",
@@ -49,8 +47,6 @@ function valuesFromDetail(detail: UserDetail): CreateUserInput {
     lastName: detail.lastName,
     email: detail.email,
     phone: detail.phone ?? "",
-    departmentPublicId: detail.department?.publicId ?? "",
-    designationPublicId: detail.jobTitle?.publicId ?? "",
     joinDate: detail.joinDate ? detail.joinDate.slice(0, 10) : "",
     branchPublicId: detail.branch.publicId.trim(),
     rolePublicId: detail.role.publicId.trim(),
@@ -67,8 +63,6 @@ interface UserFormDialogProps {
   isLoading?: boolean;
   branches: readonly UserBranchOption[];
   roles: readonly UserRoleOption[];
-  departments: readonly UserBranchOption[];
-  designations: readonly UserBranchOption[];
   actorIsSuperAdmin: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: (message: string) => void;
@@ -81,8 +75,6 @@ export function UserFormDialog({
   isLoading = false,
   branches,
   roles,
-  departments,
-  designations,
   actorIsSuperAdmin,
   onOpenChange,
   onSuccess,
@@ -158,8 +150,6 @@ export function UserFormDialog({
             lastName: values.lastName,
             email: values.email,
             phone: values.phone,
-            departmentPublicId: values.departmentPublicId,
-            designationPublicId: values.designationPublicId,
             joinDate: values.joinDate,
             branchPublicId: values.branchPublicId,
             rolePublicId: values.rolePublicId,
@@ -318,64 +308,6 @@ export function UserFormDialog({
                 disabled={readOnly || isSubmitting}
                 aria-invalid={errors.joinDate ? true : undefined}
                 {...register("joinDate")}
-              />
-            </FormField>
-            <FormField
-              htmlFor="departmentPublicId"
-              label="Department"
-              error={errors.departmentPublicId?.message}
-            >
-              <Controller
-                name="departmentPublicId"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value && field.value.length > 0 ? field.value : "none"}
-                    onValueChange={(value) => field.onChange(value === "none" ? "" : value)}
-                    disabled={readOnly || isSubmitting}
-                  >
-                    <SelectTrigger id="departmentPublicId">
-                      <SelectValue placeholder="Select a department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {departments.map((department) => (
-                        <SelectItem key={department.publicId} value={department.publicId}>
-                          {department.code} · {department.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </FormField>
-            <FormField
-              htmlFor="designationPublicId"
-              label="Designation"
-              error={errors.designationPublicId?.message}
-            >
-              <Controller
-                name="designationPublicId"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value && field.value.length > 0 ? field.value : "none"}
-                    onValueChange={(value) => field.onChange(value === "none" ? "" : value)}
-                    disabled={readOnly || isSubmitting}
-                  >
-                    <SelectTrigger id="designationPublicId">
-                      <SelectValue placeholder="Select a designation" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {designations.map((item) => (
-                        <SelectItem key={item.publicId} value={item.publicId}>
-                          {item.code} · {item.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
               />
             </FormField>
           </FormSection>

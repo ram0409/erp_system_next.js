@@ -19,12 +19,8 @@ export const TABLE_QUERY_KEYS = {
   SORT_DIR: "sortDir",
   STATUS: "status",
   TYPE: "type",
-  BRANCH: "branch",
   ROLE: "role",
   ACTION: "action",
-  DEPARTMENT: "department",
-  DESIGNATION: "designation",
-  ENTITY: "entity",
 } as const;
 
 /** Hard cap on CSV exports so one request cannot dump the whole table. */

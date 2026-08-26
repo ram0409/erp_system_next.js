@@ -189,18 +189,6 @@ export function UsersWorkspace({
         hideBelowMd: true,
       },
       {
-        id: "department",
-        header: "Department",
-        cell: (row) => row.department?.name ?? EMPTY_VALUE_PLACEHOLDER,
-        hideBelowMd: true,
-      },
-      {
-        id: "designation",
-        header: "Designation",
-        cell: (row) => row.jobTitle?.name ?? row.designation ?? EMPTY_VALUE_PLACEHOLDER,
-        hideBelowMd: true,
-      },
-      {
         id: "role",
         header: "Role",
         cell: (row) => row.role.name,
@@ -369,8 +357,6 @@ export function UsersWorkspace({
         isLoading={detailPending}
         branches={options.branches}
         roles={options.roles}
-        departments={options.departments}
-        designations={options.designations}
         actorIsSuperAdmin={actorIsSuperAdmin}
         onOpenChange={setFormOpen}
         onSuccess={handleFormSuccess}

@@ -19,6 +19,7 @@ import {
   markAllNotificationsReadAction,
   markNotificationReadAction,
 } from "@/features/notifications/actions";
+import { redirectIfSessionEnded } from "@/lib/session-client";
 import { cn } from "@/lib/utils";
 import type { NotificationFeed, NotificationItem } from "@/types/notification";
 import { formatDateTime } from "@/utils/format";
@@ -36,7 +37,10 @@ export function NotificationBell() {
 
     function refresh() {
       void listMyNotificationsAction({}).then((result) => {
-        if (!cancelled && result.success) {
+        if (cancelled || redirectIfSessionEnded(result)) {
+          return;
+        }
+        if (result.success) {
           setFeed(result.data);
         }
       });
@@ -64,6 +68,9 @@ export function NotificationBell() {
   }, []);
 
   function applyFeed(result: Awaited<ReturnType<typeof listMyNotificationsAction>>) {
+    if (redirectIfSessionEnded(result)) {
+      return;
+    }
     if (result.success) {
       setFeed(result.data);
     }

@@ -5,7 +5,7 @@ import { cache } from "react";
 import { RECORD_STATUS } from "@/constants/status";
 import { getRequestIp } from "@/lib/request";
 import { readSessionCookie } from "@/lib/session-cookie";
-import { verifySessionToken } from "@/lib/session-token";
+import { readSessionExpiresAt, verifySessionToken } from "@/lib/session-token";
 import { findActorByPublicId, toPermissionKeys, type ActorRow } from "@/repositories/user-repository";
 import type { ActorContext, SessionUser } from "@/types/session";
 
@@ -81,7 +81,6 @@ export const getActorContext = cache(async (): Promise<ActorContext | null> => {
     firstName: actor.firstName,
     lastName: actor.lastName,
     email: actor.email,
-    designation: actor.designation?.name ?? null,
     avatarUrl: actor.avatarPath,
     status: actor.status,
     role: {
@@ -121,4 +120,13 @@ export const getActorContext = cache(async (): Promise<ActorContext | null> => {
 export const requiresPasswordChange = cache(async (): Promise<boolean> => {
   const actor = await getActorRow();
   return actor?.mustChangePassword ?? false;
+});
+
+/** Expiry of the current session cookie, or null when there is no live session. */
+export const getSessionExpiresAt = cache(async (): Promise<Date | null> => {
+  const token = await readSessionCookie();
+  if (!token) {
+    return null;
+  }
+  return readSessionExpiresAt(token);
 });

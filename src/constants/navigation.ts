@@ -16,14 +16,19 @@ export type NavIconName =
   | "roles"
   | "permissions"
   | "branches"
-  | "departments"
-  | "designations"
-  | "organization"
   | "entity"
   | "settings"
   | "general-settings"
   | "profile"
   | "audit-logs";
+
+/** Stable ids for sidebar groups. Hub routes (`/administration`, `/settings`) resolve from these. */
+export const NAV_GROUP_IDS = {
+  ADMINISTRATION: "administration",
+  SETTINGS: "settings",
+} as const;
+
+export type NavGroupId = (typeof NAV_GROUP_IDS)[keyof typeof NAV_GROUP_IDS];
 
 export interface NavLeaf {
   readonly kind: "link";
@@ -43,7 +48,7 @@ export interface NavLeaf {
 
 export interface NavGroup {
   readonly kind: "group";
-  readonly id: string;
+  readonly id: NavGroupId;
   readonly label: string;
   readonly icon: NavIconName;
   readonly children: readonly NavLeaf[];
@@ -61,10 +66,24 @@ export const NAVIGATION: readonly NavItem[] = [
   },
   {
     kind: "group",
-    id: "administration",
+    id: NAV_GROUP_IDS.ADMINISTRATION,
     label: "Administration",
     icon: "administration",
     children: [
+      {
+        kind: "link",
+        label: "Entity",
+        href: ROUTES.ENTITY,
+        icon: "entity",
+        permission: PERMISSIONS.ENTITIES.VIEW,
+      },
+      {
+        kind: "link",
+        label: "Branches",
+        href: ROUTES.BRANCHES,
+        icon: "branches",
+        permission: PERMISSIONS.BRANCHES.VIEW,
+      },
       {
         kind: "link",
         label: "Users",
@@ -86,39 +105,11 @@ export const NAVIGATION: readonly NavItem[] = [
         icon: "permissions",
         permission: PERMISSIONS.ROLE_PERMISSIONS.VIEW,
       },
-      {
-        kind: "link",
-        label: "Branches",
-        href: ROUTES.BRANCHES,
-        icon: "branches",
-        permission: PERMISSIONS.BRANCHES.VIEW,
-      },
-      {
-        kind: "link",
-        label: "Departments",
-        href: ROUTES.DEPARTMENTS,
-        icon: "departments",
-        permission: PERMISSIONS.DEPARTMENTS.VIEW,
-      },
-      {
-        kind: "link",
-        label: "Designations",
-        href: ROUTES.DESIGNATIONS,
-        icon: "designations",
-        permission: PERMISSIONS.DESIGNATIONS.VIEW,
-      },
     ],
   },
   {
-    kind: "link",
-    label: "Entity",
-    href: ROUTES.ENTITY,
-    icon: "entity",
-    permission: PERMISSIONS.ENTITIES.VIEW,
-  },
-  {
     kind: "group",
-    id: "settings",
+    id: NAV_GROUP_IDS.SETTINGS,
     label: "Settings",
     icon: "settings",
     children: [
@@ -186,7 +177,7 @@ export function filterNavigation(
  * `/administration` and `/settings` are not screens of their own.
  */
 export function firstAccessibleGroupHref(
-  groupId: string,
+  groupId: NavGroupId,
   can: (permission: PermissionKey) => boolean,
 ): string | null {
   const group = NAVIGATION.find(
@@ -208,7 +199,14 @@ export function firstAccessibleGroupHref(
 export function firstAccessibleAdminHref(
   can: (permission: PermissionKey) => boolean,
 ): string | null {
-  return firstAccessibleGroupHref("administration", can);
+  return firstAccessibleGroupHref(NAV_GROUP_IDS.ADMINISTRATION, can);
+}
+
+/** First Settings child the actor can open. `/settings` itself is not a screen. */
+export function firstAccessibleSettingsHref(
+  can: (permission: PermissionKey) => boolean,
+): string | null {
+  return firstAccessibleGroupHref(NAV_GROUP_IDS.SETTINGS, can);
 }
 
 /** Flattened links, including children of groups, in sidebar order. */

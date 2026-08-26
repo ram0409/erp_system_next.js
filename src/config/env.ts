@@ -31,7 +31,7 @@ const serverEnvSchema = z.object({
     ),
   AUTH_URL: z.string().url("AUTH_URL must be an absolute URL"),
 
-  SESSION_MAX_AGE_SECONDS: z.coerce.number().int().positive().default(28_800),
+  SESSION_MAX_AGE_SECONDS: z.coerce.number().int().positive().default(300),
 
   LOGIN_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),
   LOGIN_LOCKOUT_MINUTES: z.coerce.number().int().min(1).max(1_440).default(15),

@@ -59,8 +59,6 @@ function createClient(): PrismaClient {
 function clientHasCurrentModels(client: PrismaClient): boolean {
   return (
     typeof client.loginAttempt?.count === "function" &&
-    typeof client.holiday?.count === "function" &&
-    typeof client.designation?.count === "function" &&
     typeof client.businessEntity?.count === "function"
   );
 }
