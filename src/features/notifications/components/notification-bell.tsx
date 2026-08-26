@@ -2,7 +2,7 @@
 
 import { BellIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -31,33 +31,37 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [, startTransition] = useTransition();
 
-  const loadFeed = useCallback(async () => {
-    const result = await listMyNotificationsAction({});
-    if (result.success) {
-      setFeed(result.data);
-    }
-  }, []);
-
   useEffect(() => {
-    void loadFeed();
+    let cancelled = false;
+
+    function refresh() {
+      void listMyNotificationsAction({}).then((result) => {
+        if (!cancelled && result.success) {
+          setFeed(result.data);
+        }
+      });
+    }
+
+    refresh();
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") {
-        void loadFeed();
+        refresh();
       }
     }, NOTIFICATION_POLL_MS);
 
     function onVisible() {
       if (document.visibilityState === "visible") {
-        void loadFeed();
+        refresh();
       }
     }
 
     document.addEventListener("visibilitychange", onVisible);
     return () => {
+      cancelled = true;
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [loadFeed]);
+  }, []);
 
   function applyFeed(result: Awaited<ReturnType<typeof listMyNotificationsAction>>) {
     if (result.success) {
@@ -68,7 +72,7 @@ export function NotificationBell() {
   function handleOpen(nextOpen: boolean) {
     setOpen(nextOpen);
     if (nextOpen) {
-      void loadFeed();
+      void listMyNotificationsAction({}).then(applyFeed);
     }
   }
 

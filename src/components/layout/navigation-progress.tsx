@@ -11,10 +11,12 @@ import { useEffect, useState } from "react";
 export function NavigationProgress() {
   const pathname = usePathname();
   const [pending, setPending] = useState(false);
+  const [pendingForPath, setPendingForPath] = useState(pathname);
 
-  useEffect(() => {
+  if (pendingForPath !== pathname) {
+    setPendingForPath(pathname);
     setPending(false);
-  }, [pathname]);
+  }
 
   useEffect(() => {
     function handleClick(event: MouseEvent) {

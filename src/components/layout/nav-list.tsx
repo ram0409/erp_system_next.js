@@ -3,7 +3,7 @@
 import { ChevronDownIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { NAV_ICONS } from "@/components/layout/nav-icons";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -25,10 +25,12 @@ function isRouteActive(pathname: string, href: string): boolean {
 export function NavList({ items, collapsed = false, onNavigate }: NavListProps) {
   const pathname = usePathname();
   const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const [pendingForPath, setPendingForPath] = useState(pathname);
 
-  useEffect(() => {
+  if (pendingForPath !== pathname) {
+    setPendingForPath(pathname);
     setPendingHref(null);
-  }, [pathname]);
+  }
 
   return (
     <nav aria-label="Main navigation" className="flex flex-col gap-1 px-2">

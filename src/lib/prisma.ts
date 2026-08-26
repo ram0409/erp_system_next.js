@@ -85,9 +85,9 @@ function getClient(): PrismaClient {
  * `export const prisma = cachedInstance` would pin the old object forever.
  */
 export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
-  get(_target, property) {
+  get(_target, property, receiver) {
     const client = getClient();
-    const value = Reflect.get(client, property, client);
+    const value = Reflect.get(client, property, receiver);
     if (typeof value === "function") {
       return value.bind(client);
     }
