@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
-import { resolveAuthUrl, resolveDatabaseUrl, vercelLocalDatabaseMessage } from "@/config/resolve-env";
+import { resolveAuthUrl, resolveDatabaseUrl } from "@/config/resolve-env";
 
 /**
  * Server environment. Importing this module from anywhere that can reach a
@@ -78,11 +78,9 @@ function loadServerEnv(): ServerEnv {
     );
   }
 
-  const localDatabase = vercelLocalDatabaseMessage(parsed.data.DATABASE_URL);
-  if (localDatabase) {
-    throw new Error(localDatabase);
-  }
-
+  // A leftover laptop DATABASE_URL must not crash `/login` HTML. Anonymous
+  // visitors never query Postgres; throwing here produced a 500 with no UI.
+  // Queries still fail later until Vercel points at a hosted database.
   return parsed.data;
 }
 
