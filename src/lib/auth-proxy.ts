@@ -1,5 +1,5 @@
-import { CALLBACK_URL_PARAM } from "@/constants/auth";
-import { PUBLIC_ROUTES, ROUTES } from "@/constants/routes";
+import { PUBLIC_ROUTES } from "@/constants/routes";
+import { loginHref } from "@/lib/login-href";
 
 /**
  * Cookie-presence routing for `src/proxy.ts`. Kept free of Next request types so
@@ -44,8 +44,6 @@ export function shouldSendAnonymousToLogin(
   return !hasSessionCookie && !isPublicPath(pathname);
 }
 
-export function loginRedirectLocation(origin: string, pathname: string, search: string): string {
-  const loginUrl = new URL(ROUTES.LOGIN, origin);
-  loginUrl.searchParams.set(CALLBACK_URL_PARAM, `${pathname}${search}`);
-  return loginUrl.pathname + loginUrl.search;
+export function loginRedirectLocation(pathname: string, search: string): string {
+  return loginHref(`${pathname}${search}`);
 }

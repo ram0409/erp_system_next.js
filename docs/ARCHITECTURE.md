@@ -60,10 +60,15 @@ JWT and not Auth.js. The algorithm is fixed in code so a client cannot advertise
 Lifetime is `SESSION_MAX_AGE_SECONDS` (eight hours by default). Password change and password
 reset increment `tokenVersion`, which invalidates every cookie issued under the old value.
 The current change-password request is re-issued a cookie; a reset requires a fresh sign-in.
+The dashboard layout mounts a client timer that matches the signed cookie expiry: the cookie
+is httpOnly, so the browser will not navigate on its own when the session ends.
 
-`src/proxy.ts` only checks that a cookie _exists_. It does not bounce cookie-holders off
-`/login`: an expired or revoked cookie must be able to reach the form, or the dashboard
-layout's redirect to login and a cookie-based bounce form an infinite loop.
+`src/proxy.ts` only checks that a cookie _exists_, and only on document navigations. It does
+not bounce cookie-holders off `/login`: an expired or revoked cookie must be able to reach
+the form, or the dashboard layout's redirect to login and a cookie-based bounce form an
+infinite loop. Server actions and RSC fetches are left through so the layout and
+`defineAction` wrapper can return a proper unauthenticated result instead of an HTTP 307
+that the client would follow as a fetch.
 
 ### Password reset
 
@@ -76,12 +81,13 @@ refuses reuse of the current password, and does not auto-login.
 
 | Layer                | Responsibility                                                         |
 | -------------------- | ---------------------------------------------------------------------- |
-| `proxy.ts`           | Redirects visitors with no session cookie. **Not** a security boundary |
-| `(dashboard)` layout | Redirects to sign-in when no actor resolves                            |
+| `proxy.ts`           | Redirects document visits with no session cookie. **Not** a security boundary |
+| `(dashboard)` layout | Redirects to sign-in when no actor resolves; mounts session-expiry navigation |
 | Page                 | `requirePageAccess(permission)`; renders the denial state on failure   |
 | Server action        | `defineAction({ permission })`; the authoritative check                |
 | Service              | Business invariants, e.g. cannot deactivate the last Super Admin       |
 | `<Can>` / `useCan`   | Hides controls in client UI. **Not** a security boundary               |
+| `SessionExpiryGuard` | Replaces the page with login when the signed cookie expires. **Not** a security boundary |
 
 `proxy.ts` runs before a request reaches a server component and has no database access, so
 it can only observe that a cookie exists. Treating that as authorization is a well-known

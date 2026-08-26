@@ -5,6 +5,7 @@ import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/shared/page-header";
 import { ROUTES } from "@/constants/routes";
 import { ProfileWorkspace } from "@/features/profile/components/profile-workspace";
+import { loginHref } from "@/lib/login-href";
 import { getActorContext } from "@/lib/session";
 
 export const metadata: Metadata = { title: "My profile" };
@@ -14,7 +15,7 @@ export default async function ProfilePage() {
   const actor = await getActorContext();
 
   if (!actor) {
-    redirect(ROUTES.LOGIN);
+    redirect(loginHref(ROUTES.PROFILE));
   }
 
   return (

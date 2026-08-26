@@ -38,20 +38,18 @@ function PageFallback() {
  * re-checks its own permission independently.
  */
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
+  const headerList = await headers();
+  const currentPath = headerList.get(CURRENT_PATH_HEADER);
   const actor = await getActorContext();
 
   if (!actor) {
-    const headerList = await headers();
-    redirect(loginHref(headerList.get(CURRENT_PATH_HEADER)));
+    redirect(loginHref(currentPath));
   }
 
   // An account still on its generated password is confined to the change-password
   // screen. Enforced in the layout so every authenticated route inherits it,
   // rather than relying on each page to remember.
   if (await requiresPasswordChange()) {
-    const headerList = await headers();
-    const currentPath = headerList.get(CURRENT_PATH_HEADER);
-
     if (currentPath !== ROUTES.CHANGE_PASSWORD) {
       redirect(ROUTES.CHANGE_PASSWORD);
     }

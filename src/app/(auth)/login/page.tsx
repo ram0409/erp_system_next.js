@@ -5,23 +5,12 @@ import { CALLBACK_URL_PARAM } from "@/constants/auth";
 import { ROUTES } from "@/constants/routes";
 import { AuthPageHeading } from "@/features/auth/components/auth-page-heading";
 import { LoginForm } from "@/features/auth/components/login-form";
+import { isSafeRelativePath } from "@/lib/login-href";
 import { getActorContext } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Sign in" };
 
 export const dynamic = "force-dynamic";
-
-/**
- * Only relative callback paths are honoured. Redirecting to an absolute URL from
- * a query parameter is an open redirect, which is a convincing way to send a user
- * to a copy of this login page on someone else's domain.
- */
-function safeRedirect(value: string | undefined): string | undefined {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return undefined;
-  }
-  return value;
-}
 
 export default async function LoginPage({
   searchParams,
@@ -35,7 +24,8 @@ export default async function LoginPage({
 
   const params = await searchParams;
   const raw = params[CALLBACK_URL_PARAM];
-  const next = safeRedirect(Array.isArray(raw) ? raw[0] : raw);
+  const candidate = Array.isArray(raw) ? raw[0] : raw;
+  const next = isSafeRelativePath(candidate) ? candidate : undefined;
 
   return (
     <div className="space-y-6">

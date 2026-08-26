@@ -1,7 +1,9 @@
 import "server-only";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { CURRENT_PATH_HEADER } from "@/constants/auth";
 import type { PermissionKey } from "@/constants/permissions";
 import { hasAllPermissions, hasAnyPermission } from "@/lib/authorization";
 import { loginHref } from "@/lib/login-href";
@@ -27,7 +29,7 @@ export async function requirePageAccess(
   const actor = await getActorContext();
 
   if (!actor) {
-    redirect(loginHref());
+    redirect(loginHref((await headers()).get(CURRENT_PATH_HEADER)));
   }
 
   const required = Array.isArray(permission) ? permission : [permission as PermissionKey];

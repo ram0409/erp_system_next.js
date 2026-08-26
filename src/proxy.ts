@@ -59,7 +59,7 @@ export default function proxy(request: NextRequest) {
   });
 
   if (shouldSendAnonymousToLogin(pathname, hasSessionCookie, { isSoftNavigation })) {
-    const location = loginRedirectLocation(request.url, pathname, search);
+    const location = loginRedirectLocation(pathname, search);
     const redirectResponse = NextResponse.redirect(new URL(location, request.url));
     return applyPageSecurity(redirectResponse, nonce);
   }
