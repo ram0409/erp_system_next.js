@@ -36,7 +36,7 @@ const UNIQUE_COLUMN_FIELDS: Readonly<Record<string, FieldDescriptor>> = {
 
 /** Composite indexes report every column; this names the pair meaningfully. */
 const UNIQUE_INDEX_FIELDS: Readonly<Record<string, FieldDescriptor>> = {
-  "organization_id,code_normalized": { field: "code", label: "Branch code" },
+  "entity_id,code_normalized": { field: "code", label: "Branch code" },
   "role_id,permission_id": { field: "permissionId", label: "Permission" },
   "module,action": { field: "action", label: "Permission" },
   "user_id,work_date": { field: "workDate", label: "Date" },

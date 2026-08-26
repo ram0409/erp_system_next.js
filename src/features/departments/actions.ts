@@ -22,7 +22,6 @@ async function auditMeta() {
 function revalidateDepartments(): void {
   revalidatePath(ROUTES.DEPARTMENTS);
   revalidatePath(ROUTES.USERS);
-  revalidatePath(ROUTES.EMPLOYEES);
 }
 
 export const getDepartmentAction = defineAction({

@@ -12,13 +12,9 @@ import {
   type BranchType,
   type RecordStatus,
 } from "@/constants/status";
-import { duplicateFieldError, ForbiddenError, InternalError, NotFoundError } from "@/lib/errors";
-import {
-  resolveAllowedValue,
-  resolvePagination,
-  resolveSearchTerm,
-  resolveSort,
-} from "@/lib/pagination";
+import { duplicateFieldError, ForbiddenError, InternalError, NotFoundError, ValidationError } from "@/lib/errors";
+import { resolveAllowedValue, resolvePagination, resolveSearchTerm, resolveSort } from "@/lib/pagination";
+import { getWorkspaceScope } from "@/lib/workspace-scope";
 import * as auditRepository from "@/repositories/audit-repository";
 import * as branchRepository from "@/repositories/branch-repository";
 import {
@@ -26,6 +22,7 @@ import {
   type BranchDetailRow,
   type BranchListRow,
 } from "@/repositories/branch-repository";
+import * as entityRepository from "@/repositories/entity-repository";
 import * as organizationRepository from "@/repositories/organization-repository";
 import * as userRepository from "@/repositories/user-repository";
 import type { BranchDetail, BranchExportResult, BranchListItem } from "@/types/branch";
@@ -82,6 +79,11 @@ function toListItem(row: BranchListRow): BranchListItem {
     status: row.status,
     createdAt: row.createdAt.toISOString(),
     userCount: row._count.users,
+    entity: {
+      publicId: row.entity.publicId,
+      code: row.entity.code,
+      name: row.entity.name,
+    },
   };
 }
 
@@ -126,11 +128,35 @@ async function writeAudit(
   });
 }
 
-function resolveListFilters(searchParams: RawSearchParams) {
+async function resolveAssignedEntity(
+  publicId: string,
+  currentEntityId?: number,
+): Promise<{ id: number }> {
+  const row = await entityRepository.findByPublicId(publicId);
+  if (!row) {
+    throw new ValidationError(BRANCH_MESSAGES.ENTITY_INACTIVE, {
+      fieldErrors: [{ field: "entityPublicId", message: BRANCH_MESSAGES.ENTITY_INACTIVE }],
+    });
+  }
+
+  const keepingCurrent = currentEntityId !== undefined && row.id === currentEntityId;
+  if (!keepingCurrent && row.status !== RECORD_STATUS.ACTIVE) {
+    throw new ValidationError(BRANCH_MESSAGES.ENTITY_INACTIVE, {
+      fieldErrors: [{ field: "entityPublicId", message: BRANCH_MESSAGES.ENTITY_INACTIVE }],
+    });
+  }
+
+  return row;
+}
+
+async function resolveListFilters(searchParams: RawSearchParams) {
+  const scope = await getWorkspaceScope();
+
   return {
     search: resolveSearchTerm(searchParams),
     status: resolveAllowedValue(searchParams, TABLE_QUERY_KEYS.STATUS, RECORD_STATUS_VALUES),
     type: resolveAllowedValue(searchParams, TABLE_QUERY_KEYS.TYPE, BRANCH_TYPE_VALUES),
+    ...(scope ? { entityId: scope.entityId } : {}),
   };
 }
 
@@ -139,7 +165,7 @@ export async function listBranches(
 ): Promise<PaginatedResult<BranchListItem>> {
   const pagination = resolvePagination(searchParams);
   const sort = resolveSort(searchParams, BRANCH_SORT_FIELDS, "createdAt");
-  const result = await branchRepository.list(resolveListFilters(searchParams), pagination, sort);
+  const result = await branchRepository.list(await resolveListFilters(searchParams), pagination, sort);
 
   return {
     items: result.items.map(toListItem),
@@ -152,21 +178,21 @@ export async function getBranch(publicId: string): Promise<BranchDetail> {
 }
 
 async function assertUniqueCode(
-  organizationId: number,
+  entityId: number,
   code: string,
   exceptPublicId?: string,
 ): Promise<void> {
-  if (await branchRepository.isCodeTaken(organizationId, code, exceptPublicId)) {
+  if (await branchRepository.isCodeTaken(entityId, code, exceptPublicId)) {
     throw duplicateFieldError("code", "Branch code");
   }
 }
 
 async function assertUniqueName(
-  organizationId: number,
+  entityId: number,
   name: string,
   exceptPublicId?: string,
 ): Promise<void> {
-  if (await branchRepository.isNameTaken(organizationId, name, exceptPublicId)) {
+  if (await branchRepository.isNameTaken(entityId, name, exceptPublicId)) {
     throw duplicateFieldError("name", "Branch name");
   }
 }
@@ -177,15 +203,17 @@ export async function createBranch(
   meta: AuditMeta = {},
 ): Promise<BranchDetail> {
   const organizationId = await requireOrganizationId();
+  const entity = await resolveAssignedEntity(input.entityPublicId);
   const existingCount = await branchRepository.countNotDeleted(organizationId);
   const headOfficeCount = await branchRepository.countHeadOffices(organizationId);
   const isHeadOffice = existingCount === 0 || headOfficeCount === 0 ? true : input.isHeadOffice;
 
-  await assertUniqueCode(organizationId, input.code);
-  await assertUniqueName(organizationId, input.name);
+  await assertUniqueCode(entity.id, input.code);
+  await assertUniqueName(entity.id, input.name);
 
   const created = await branchRepository.create({
     organizationId,
+    entityId: entity.id,
     code: input.code,
     name: input.name,
     type: input.type,
@@ -206,7 +234,13 @@ export async function createBranch(
     entityId: created.id,
     entityPublicId: created.publicId,
     summary: `Created branch ${created.code} (${created.name})`,
-    changes: { code: created.code, name: created.name, type: created.type, isHeadOffice },
+    changes: {
+      code: created.code,
+      name: created.name,
+      type: created.type,
+      isHeadOffice,
+      entity: created.entity.code,
+    },
   });
 
   return toDetail(created);
@@ -225,11 +259,13 @@ export async function updateBranch(
 
   const headOfficeCount = await branchRepository.countHeadOffices(existing.organizationId);
   const isHeadOffice = headOfficeCount === 0 ? true : input.isHeadOffice;
+  const entity = await resolveAssignedEntity(input.entityPublicId, existing.entityId);
 
-  await assertUniqueCode(existing.organizationId, input.code, input.publicId);
-  await assertUniqueName(existing.organizationId, input.name, input.publicId);
+  await assertUniqueCode(entity.id, input.code, input.publicId);
+  await assertUniqueName(entity.id, input.name, input.publicId);
 
   const updated = await branchRepository.update(input.publicId, {
+    entityId: entity.id,
     code: input.code,
     name: input.name,
     type: input.type,
@@ -254,6 +290,7 @@ export async function updateBranch(
       name: { from: existing.name, to: updated.name },
       type: { from: existing.type, to: updated.type },
       isHeadOffice: { from: existing.isHeadOffice, to: updated.isHeadOffice },
+      entity: { from: existing.entity.code, to: updated.entity.code },
       status: { from: existing.status, to: updated.status },
     },
   });
@@ -345,11 +382,14 @@ export async function deleteBranch(
 export async function exportBranches(
   filters: ExportBranchesInput,
 ): Promise<BranchExportResult> {
+  const scope = await getWorkspaceScope();
+
   const { rows, total } = await branchRepository.listMatching(
     {
       search: filters.search,
       status: filters.status,
       type: filters.type,
+      ...(scope ? { entityId: scope.entityId } : {}),
     },
     EXPORT_MAX_ROWS,
     { sortBy: "name", sortDir: "asc" },
@@ -359,6 +399,7 @@ export async function exportBranches(
     [
       "Code",
       "Name",
+      "Entity",
       "Type",
       "Head office",
       "Status",
@@ -372,6 +413,7 @@ export async function exportBranches(
     rows.map((row) => [
       row.code,
       row.name,
+      row.entity.name,
       BRANCH_TYPE_LABELS[row.type as BranchType],
       row.isHeadOffice,
       RECORD_STATUS_LABELS[row.status],

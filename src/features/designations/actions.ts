@@ -22,7 +22,6 @@ async function auditMeta() {
 function revalidateDesignations(): void {
   revalidatePath(ROUTES.DESIGNATIONS);
   revalidatePath(ROUTES.USERS);
-  revalidatePath(ROUTES.EMPLOYEES);
   revalidatePath(ROUTES.PROFILE);
 }
 

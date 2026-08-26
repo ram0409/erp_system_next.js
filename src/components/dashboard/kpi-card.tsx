@@ -17,7 +17,7 @@ interface DashboardKpiCardProps {
 }
 
 const iconToneClass: Record<DashboardKpiTone, string> = {
-  brand: "brand-fill shadow-none",
+  brand: "bg-primary text-primary-foreground",
   success: "bg-success/14 text-success",
   warning: "bg-warning/18 text-warning",
   info: "bg-info/14 text-info",
@@ -33,17 +33,11 @@ export function DashboardKpiCard({
   tone = "brand",
 }: DashboardKpiCardProps) {
   const content = (
-    <Card
-      className={cn(
-        "h-full",
-        href &&
-          "hover:border-primary/35 transition-all hover:shadow-[0_18px_40px_-24px_oklch(0.45_0.18_290_/_0.45)]",
-      )}
-    >
+    <Card className={cn("h-full", href && "hover:border-primary/40 transition-colors")}>
       <CardContent className="flex h-full items-start gap-4 py-5">
         <span
           className={cn(
-            "flex size-11 shrink-0 items-center justify-center rounded-2xl",
+            "flex size-10 shrink-0 items-center justify-center rounded-md",
             iconToneClass[tone],
           )}
         >
@@ -67,7 +61,7 @@ export function DashboardKpiCard({
   return (
     <Link
       href={href}
-      className="focus-visible:ring-ring block h-full rounded-xl focus-visible:ring-2 focus-visible:outline-none"
+      className="focus-visible:ring-ring block h-full rounded-lg focus-visible:ring-2 focus-visible:outline-none"
     >
       {content}
     </Link>

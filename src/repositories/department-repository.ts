@@ -62,11 +62,20 @@ export async function list(
 ): Promise<PaginatedResult<DepartmentListRow>> {
   const where: Prisma.DepartmentWhereInput = {};
   if (filters.status) where.status = filters.status;
-  if (filters.branchId !== undefined) where.branchId = filters.branchId;
+
+  const and: Prisma.DepartmentWhereInput[] = [];
+  if (filters.branchId !== undefined) {
+    and.push({ OR: [{ branchId: filters.branchId }, { branchId: null }] });
+  }
 
   const term = filters.search?.trim();
   if (term) {
-    where.OR = [{ name: contains(term) }, { code: contains(term) }];
+    and.push({ OR: [{ name: contains(term) }, { code: contains(term) }] });
+  }
+  if (and.length === 1) {
+    Object.assign(where, and[0]);
+  } else if (and.length > 1) {
+    where.AND = and;
   }
 
   const [items, total] = await withPrismaErrors("department.list", () =>
@@ -98,10 +107,17 @@ export function findIdByPublicId(publicId: string): Promise<number | null> {
   });
 }
 
-export function listOptions(): Promise<{ publicId: string; code: string; name: string }[]> {
+export function listOptions(
+  branchId?: number,
+): Promise<{ publicId: string; code: string; name: string }[]> {
   return withPrismaErrors("department.listOptions", () =>
     prisma.department.findMany({
-      where: { status: "ACTIVE" },
+      where: {
+        status: "ACTIVE",
+        ...(branchId !== undefined
+          ? { OR: [{ branchId }, { branchId: null }] }
+          : {}),
+      },
       select: { publicId: true, code: true, name: true },
       orderBy: { name: "asc" },
     }),

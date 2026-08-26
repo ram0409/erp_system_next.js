@@ -31,7 +31,7 @@ export function TableHeader({ className, ...props }: React.ComponentProps<"thead
     <thead
       data-slot="table-header"
       className={cn(
-        "bg-primary/8 [&_tr]:border-border [&_tr]:hover:bg-transparent [&_tr]:border-b",
+        "bg-muted/70 [&_tr]:border-border [&_tr]:hover:bg-transparent [&_tr]:border-b",
         className,
       )}
       {...props}

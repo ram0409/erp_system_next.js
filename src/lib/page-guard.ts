@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import type { PermissionKey } from "@/constants/permissions";
 import { ROUTES } from "@/constants/routes";
-import { hasAllPermissions } from "@/lib/authorization";
+import { hasAllPermissions, hasAnyPermission } from "@/lib/authorization";
 import { getActorContext } from "@/lib/session";
 import type { ActorContext } from "@/types/session";
 
@@ -22,6 +22,7 @@ export type PageAccess =
  */
 export async function requirePageAccess(
   permission: PermissionKey | readonly PermissionKey[],
+  mode: "all" | "any" = "all",
 ): Promise<PageAccess> {
   const actor = await getActorContext();
 
@@ -30,5 +31,7 @@ export async function requirePageAccess(
   }
 
   const required = Array.isArray(permission) ? permission : [permission as PermissionKey];
-  return hasAllPermissions(actor, required) ? { allowed: true, actor } : { allowed: false };
+  const allowed =
+    mode === "any" ? hasAnyPermission(actor, required) : hasAllPermissions(actor, required);
+  return allowed ? { allowed: true, actor } : { allowed: false };
 }

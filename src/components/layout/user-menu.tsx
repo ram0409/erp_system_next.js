@@ -29,7 +29,7 @@ export function UserMenu({ user, onSignOut }: UserMenuProps) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="hover:bg-accent focus-visible:ring-ring flex items-center gap-2 rounded-full py-1 pr-1.5 pl-1 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+          className="hover:bg-accent focus-visible:ring-ring flex items-center gap-2 rounded-md py-1 pr-1.5 pl-1 transition-colors focus-visible:ring-2 focus-visible:outline-none"
           aria-label="Open user menu"
         >
           <Avatar>

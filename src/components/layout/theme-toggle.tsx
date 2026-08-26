@@ -5,15 +5,12 @@ import { MoonIcon, SunIcon } from "lucide-react";
 import { useTheme } from "@/components/providers/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 
 interface ThemeToggleProps {
   className?: string;
-  /** Use on the sign-in canvas where the control sits on a dark gradient. */
-  onBrand?: boolean;
 }
 
-export function ThemeToggle({ className, onBrand = false }: ThemeToggleProps) {
+export function ThemeToggle({ className }: ThemeToggleProps) {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === "dark";
   const label = isDark ? "Switch to light theme" : "Switch to dark theme";
@@ -28,10 +25,7 @@ export function ThemeToggle({ className, onBrand = false }: ThemeToggleProps) {
           onClick={toggleTheme}
           aria-label={label}
           aria-pressed={isDark}
-          className={cn(
-            onBrand && "text-white hover:bg-white/15 hover:text-white focus-visible:ring-white/70",
-            className,
-          )}
+          className={className}
         >
           {isDark ? <SunIcon /> : <MoonIcon />}
         </Button>

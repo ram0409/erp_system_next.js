@@ -15,6 +15,7 @@ import {
   resolveSearchTerm,
   resolveSort,
 } from "@/lib/pagination";
+import { getWorkspaceScope } from "@/lib/workspace-scope";
 import * as auditRepository from "@/repositories/audit-repository";
 import * as branchRepository from "@/repositories/branch-repository";
 import * as departmentRepository from "@/repositories/department-repository";
@@ -116,10 +117,12 @@ export async function listDepartments(
 ): Promise<PaginatedResult<DepartmentListItem>> {
   const pagination = resolvePagination(searchParams);
   const sort = resolveSort(searchParams, DEPARTMENT_SORT_FIELDS, "createdAt");
+  const scope = await getWorkspaceScope();
   const result = await departmentRepository.list(
     {
       search: resolveSearchTerm(searchParams),
       status: resolveAllowedValue(searchParams, TABLE_QUERY_KEYS.STATUS, RECORD_STATUS_VALUES),
+      ...(scope ? { branchId: scope.branchId } : {}),
     },
     pagination,
     sort,
@@ -133,7 +136,8 @@ export async function getDepartment(publicId: string): Promise<DepartmentDetail>
 }
 
 export async function listDepartmentOptions(): Promise<DepartmentOption[]> {
-  return departmentRepository.listOptions();
+  const scope = await getWorkspaceScope();
+  return departmentRepository.listOptions(scope?.branchId);
 }
 
 export async function createDepartment(

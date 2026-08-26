@@ -51,6 +51,7 @@ export const BRANCH_MESSAGES = {
   USERS_ASSIGNED_DEACTIVATE: "Reassign users before deactivating this branch.",
   USERS_ASSIGNED_DELETE: "Reassign users before deleting this branch.",
   LAST_BRANCH: "The organization must keep at least one branch.",
+  ENTITY_INACTIVE: "Assign an active entity.",
   EXPORT_TRUNCATED: "The export was limited to the first 5,000 matching rows.",
 } as const;
 
@@ -119,28 +120,10 @@ export const DESIGNATION_MESSAGES = {
   USERS_ASSIGNED_DELETE: "Reassign employees before deleting this designation.",
 } as const;
 
-export const ATTENDANCE_MESSAGES = {
-  DUPLICATE_DAY: "Attendance for this employee on that date already exists.",
+export const ENTITY_MESSAGES = {
+  CODE_TAKEN: "Entity code is already in use.",
+  NAME_TAKEN: "Entity name is already in use.",
+  BRANCHES_ASSIGNED_DEACTIVATE: "Reassign branches before deactivating this entity.",
+  BRANCHES_ASSIGNED_DELETE: "Reassign branches before deleting this entity.",
 } as const;
 
-export const LEAVE_MESSAGES = {
-  DATE_ORDER: "The end date must be on or after the start date.",
-} as const;
-
-export const HOLIDAY_MESSAGES = {
-  DATE_TAKEN: "A holiday is already recorded on that date.",
-} as const;
-
-export const PROJECT_MESSAGES = {
-  CODE_TAKEN: "Project code is already in use.",
-  DATE_ORDER: "The end date must be on or after the start date.",
-  TASKS_ASSIGNED_DELETE: "Remove or reassign tasks before deleting this project.",
-} as const;
-
-export const TASK_MESSAGES = {
-  WORKLOGS_ASSIGNED_DELETE: "Remove worklogs before deleting this task.",
-} as const;
-
-export const WORKLOG_MESSAGES = {
-  HOURS_RANGE: "Enter hours between 0.25 and 24.",
-} as const;

@@ -1,10 +1,11 @@
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import {
-  CalendarOffIcon,
-  ClipboardCheckIcon,
-  FolderKanbanIcon,
-  ListTodoIcon,
+  BuildingIcon,
+  LandmarkIcon,
+  ShieldCheckIcon,
+  SlidersHorizontalIcon,
+  UserCogIcon,
   UserPlusIcon,
 } from "lucide-react";
 
@@ -26,34 +27,40 @@ interface QuickAction {
 export function DashboardQuickActions({ capabilities }: DashboardQuickActionsProps) {
   const actions: QuickAction[] = [
     {
-      href: ROUTES.EMPLOYEES,
-      label: "Add employee",
+      href: ROUTES.USERS,
+      label: "Add user",
       icon: UserPlusIcon,
-      show: capabilities.employees.create,
+      show: capabilities.users.create,
     },
     {
-      href: ROUTES.ATTENDANCE,
-      label: "Attendance",
-      icon: ClipboardCheckIcon,
-      show: capabilities.attendance.view,
+      href: ROUTES.ROLES,
+      label: "Roles",
+      icon: UserCogIcon,
+      show: capabilities.roles.view,
     },
     {
-      href: ROUTES.LEAVE,
-      label: "Leave",
-      icon: CalendarOffIcon,
-      show: capabilities.leave.view,
+      href: ROUTES.ROLE_PERMISSIONS,
+      label: "Role permissions",
+      icon: ShieldCheckIcon,
+      show: capabilities.rolePermissions.view,
     },
     {
-      href: ROUTES.PROJECTS,
-      label: "Projects",
-      icon: FolderKanbanIcon,
-      show: capabilities.projects.view,
+      href: ROUTES.BRANCHES,
+      label: "Branches",
+      icon: BuildingIcon,
+      show: capabilities.branches.view,
     },
     {
-      href: ROUTES.TASKS,
-      label: "Tasks",
-      icon: ListTodoIcon,
-      show: capabilities.tasks.view,
+      href: ROUTES.ENTITY,
+      label: "Entity",
+      icon: LandmarkIcon,
+      show: capabilities.entities.view,
+    },
+    {
+      href: ROUTES.SETTINGS_GENERAL,
+      label: "Company information",
+      icon: SlidersHorizontalIcon,
+      show: capabilities.settings.view,
     },
   ].filter((action) => action.show);
 
@@ -64,7 +71,13 @@ export function DashboardQuickActions({ capabilities }: DashboardQuickActionsPro
   return (
     <section className="flex flex-wrap gap-2">
       {actions.map((action) => (
-        <Button key={action.href} variant="outline" size="sm" asChild>
+        <Button
+          key={action.href}
+          variant="outline"
+          size="sm"
+          className="border-primary/20 bg-card/75 hover:border-primary/40 hover:bg-card"
+          asChild
+        >
           <Link href={action.href}>
             <action.icon />
             {action.label}

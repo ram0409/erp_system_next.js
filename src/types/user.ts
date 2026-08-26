@@ -79,10 +79,3 @@ export interface UserExportResult {
   readonly rowCount: number;
   readonly truncated: boolean;
 }
-
-export interface EmployeeOption {
-  readonly publicId: string;
-  readonly employeeCode: string;
-  readonly firstName: string;
-  readonly lastName: string;
-}

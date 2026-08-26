@@ -50,6 +50,7 @@ const optionalPhoneField = optionalText(32, "Phone number is too long").refine(
 );
 
 export const branchFieldsSchema = z.object({
+  entityPublicId: z.string().trim().min(1, "Select an entity").max(32, "Select an entity"),
   code: branchCodeSchema,
   name: branchNameSchema,
   type: z.enum(BRANCH_TYPE_VALUES),
@@ -86,5 +87,6 @@ export const exportBranchesSchema = z.object({
   search: z.string().trim().max(120).optional(),
   status: z.enum(RECORD_STATUS_VALUES).optional(),
   type: z.enum(BRANCH_TYPE_VALUES).optional(),
+  entityPublicId: publicIdSchema.optional(),
 });
 export type ExportBranchesInput = z.infer<typeof exportBranchesSchema>;

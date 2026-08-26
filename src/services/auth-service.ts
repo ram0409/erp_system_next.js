@@ -224,6 +224,11 @@ export async function signIn(request: SignInRequest): Promise<SignInResult> {
         publicId: user.branch.publicId,
         code: user.branch.code,
         name: user.branch.name,
+        entity: {
+          publicId: user.branch.entity.publicId,
+          code: user.branch.entity.code,
+          name: user.branch.entity.name,
+        },
       },
     },
     mustChangePassword: user.mustChangePassword,
