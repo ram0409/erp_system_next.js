@@ -11,7 +11,7 @@ import { normalizeCode, normalizeEmail, normalizeKey } from "@/lib/normalize";
 import { prisma } from "@/lib/prisma";
 import { buildPaginatedResult } from "@/lib/pagination";
 import type { PaginatedResult, PaginationParams, SortParams } from "@/types/pagination";
-import { NOT_DELETED, contains, orderByWithTiebreak } from "./base";
+import { NOT_DELETED, contains, findPageAndTotal, orderByWithTiebreak } from "./base";
 import { withPrismaErrors } from "./prisma-errors";
 import type { Prisma } from "@generated/prisma/client";
 
@@ -298,10 +298,8 @@ export async function list(
 ): Promise<PaginatedResult<UserListRow>> {
   const where = buildListWhere(filters);
 
-  // One transaction so the count and the page describe the same snapshot;
-  // otherwise a concurrent insert can report a total that the page contradicts.
   const [items, total] = await withPrismaErrors("user.list", () =>
-    prisma.$transaction([
+    findPageAndTotal(
       prisma.user.findMany({
         where,
         select: LIST_SELECT,
@@ -310,7 +308,7 @@ export async function list(
         take: pagination.take,
       }),
       prisma.user.count({ where }),
-    ]),
+    ),
   );
 
   return buildPaginatedResult(items, total, pagination);
@@ -514,7 +512,7 @@ export async function listMatching(
   const where = buildListWhere(filters);
 
   const [rows, total] = await withPrismaErrors("user.listMatching", () =>
-    prisma.$transaction([
+    findPageAndTotal(
       prisma.user.findMany({
         where,
         select: LIST_SELECT,
@@ -522,7 +520,7 @@ export async function listMatching(
         take,
       }),
       prisma.user.count({ where }),
-    ]),
+    ),
   );
 
   return { rows, total };

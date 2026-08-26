@@ -5,6 +5,7 @@ import { type PoolConfig } from "pg";
 
 import { env, isDevelopment, isProduction } from "@/config/env";
 import { isLoopbackHost, sanitizeRuntimeDatabaseUrl } from "@/config/resolve-env";
+import { lazyObject } from "@/lib/lazy-object";
 import { PrismaClient } from "@generated/prisma/client";
 
 /**
@@ -41,7 +42,7 @@ function poolConfig(): PoolConfig {
 
   return {
     connectionString,
-    max: onVercel ? 1 : isProduction ? 10 : 5,
+    max: onVercel ? 5 : isProduction ? 10 : 5,
     idleTimeoutMillis: onVercel ? 5_000 : 30_000,
     connectionTimeoutMillis: 10_000,
     ssl: poolSsl(connectionString),
@@ -56,7 +57,11 @@ function createClient(): PrismaClient {
 }
 
 function clientHasCurrentModels(client: PrismaClient): boolean {
-  return typeof client.loginAttempt?.count === "function";
+  return (
+    typeof client.loginAttempt?.count === "function" &&
+    typeof client.holiday?.count === "function" &&
+    typeof client.designation?.count === "function"
+  );
 }
 
 function disposeCachedClient(): void {
@@ -81,16 +86,7 @@ function getClient(): PrismaClient {
 }
 
 /**
- * A proxy so importers never keep a stale client after `prisma generate`.
+ * A lazy singleton so importers never keep a stale client after `prisma generate`.
  * `export const prisma = cachedInstance` would pin the old object forever.
  */
-export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
-  get(_target, property, receiver) {
-    const client = getClient();
-    const value = Reflect.get(client, property, receiver);
-    if (typeof value === "function") {
-      return value.bind(client);
-    }
-    return value;
-  },
-});
+export const prisma: PrismaClient = lazyObject(getClient);

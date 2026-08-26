@@ -37,3 +37,14 @@ export function orderByWithTiebreak<TField extends string>(
   const dir = orderDirection(direction);
   return [{ [field]: dir } as Record<TField, "asc" | "desc">, { id: dir }];
 }
+
+/**
+ * Page + total without `BEGIN`. Neon poolers (and Vercel serverless) reject
+ * Prisma's transaction protocol; these two reads do not need a shared snapshot.
+ */
+export function findPageAndTotal<T>(
+  rows: Promise<T[]>,
+  total: Promise<number>,
+): Promise<[T[], number]> {
+  return Promise.all([rows, total]);
+}

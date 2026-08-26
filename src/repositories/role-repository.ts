@@ -5,7 +5,7 @@ import { normalizeKey, normalizeSlug } from "@/lib/normalize";
 import { buildPaginatedResult } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
 import type { PaginatedResult, PaginationParams, SortParams } from "@/types/pagination";
-import { contains, orderByWithTiebreak } from "./base";
+import { contains, findPageAndTotal, orderByWithTiebreak } from "./base";
 import { withPrismaErrors } from "./prisma-errors";
 import type { Prisma } from "@generated/prisma/client";
 
@@ -73,7 +73,7 @@ export async function list(
   }
 
   const [items, total] = await withPrismaErrors("role.list", () =>
-    prisma.$transaction([
+    findPageAndTotal(
       prisma.role.findMany({
         where,
         select: LIST_SELECT,
@@ -82,7 +82,7 @@ export async function list(
         take: pagination.take,
       }),
       prisma.role.count({ where }),
-    ]),
+    ),
   );
 
   return buildPaginatedResult(items, total, pagination);
@@ -192,21 +192,21 @@ export function findGrantedKeys(roleId: number): Promise<string[]> {
  * Replaces a role's grants with exactly `permissionIds`.
  *
  * Delete-then-insert inside one transaction, rather than diffing: the matrix is
- * submitted as a complete desired state, and a partial diff that fails halfway
- * would leave a role holding a combination nobody chose.
+ * submitted as a complete desired state. Neon transaction-mode poolers reject
+ * Prisma `$transaction([...])`, so these two writes run in sequence instead of
+ * a single BEGIN. A crash between them can leave the role with no permissions
+ * until the action is retried.
  */
 export function replacePermissions(
   roleId: number,
   permissionIds: readonly number[],
 ): Promise<number> {
   return withPrismaErrors("role.replacePermissions", async () => {
-    const [, created] = await prisma.$transaction([
-      prisma.rolePermission.deleteMany({ where: { roleId } }),
-      prisma.rolePermission.createMany({
-        data: permissionIds.map((permissionId) => ({ roleId, permissionId })),
-        skipDuplicates: true,
-      }),
-    ]);
+    await prisma.rolePermission.deleteMany({ where: { roleId } });
+    const created = await prisma.rolePermission.createMany({
+      data: permissionIds.map((permissionId) => ({ roleId, permissionId })),
+      skipDuplicates: true,
+    });
     return created.count;
   });
 }
