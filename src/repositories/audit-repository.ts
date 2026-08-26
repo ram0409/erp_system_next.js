@@ -5,7 +5,7 @@ import { buildPaginatedResult } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
 import { sanitizeAuditChanges } from "@/lib/redact";
 import type { PaginatedResult, PaginationParams } from "@/types/pagination";
-import { contains } from "./base";
+import { contains, findPageAndTotal } from "./base";
 import { withPrismaErrors } from "./prisma-errors";
 import type { Prisma } from "@generated/prisma/client";
 
@@ -106,7 +106,7 @@ export async function list(
   }
 
   const [items, total] = await withPrismaErrors("audit.list", () =>
-    prisma.$transaction([
+    findPageAndTotal(
       prisma.auditLog.findMany({
         where,
         select: LIST_SELECT,
@@ -115,7 +115,7 @@ export async function list(
         take: pagination.take,
       }),
       prisma.auditLog.count({ where }),
-    ]),
+    ),
   );
 
   return buildPaginatedResult(items, total, pagination);

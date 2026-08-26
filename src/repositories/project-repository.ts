@@ -5,7 +5,7 @@ import { normalizeCode, normalizeKey } from "@/lib/normalize";
 import { buildPaginatedResult } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
 import type { PaginatedResult, PaginationParams, SortParams } from "@/types/pagination";
-import { contains, orderByWithTiebreak } from "./base";
+import { contains, findPageAndTotal, orderByWithTiebreak } from "./base";
 import { withPrismaErrors } from "./prisma-errors";
 import type { Prisma } from "@generated/prisma/client";
 
@@ -86,7 +86,7 @@ export async function list(
   }
 
   const [items, total] = await withPrismaErrors("project.list", () =>
-    prisma.$transaction([
+    findPageAndTotal(
       prisma.project.findMany({
         where,
         select: LIST_SELECT,
@@ -95,7 +95,7 @@ export async function list(
         take: pagination.take,
       }),
       prisma.project.count({ where }),
-    ]),
+    ),
   );
 
   return buildPaginatedResult(items, total, pagination);

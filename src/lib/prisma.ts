@@ -41,7 +41,7 @@ function poolConfig(): PoolConfig {
 
   return {
     connectionString,
-    max: onVercel ? 1 : isProduction ? 10 : 5,
+    max: onVercel ? 5 : isProduction ? 10 : 5,
     idleTimeoutMillis: onVercel ? 5_000 : 30_000,
     connectionTimeoutMillis: 10_000,
     ssl: poolSsl(connectionString),
@@ -85,9 +85,9 @@ function getClient(): PrismaClient {
  * `export const prisma = cachedInstance` would pin the old object forever.
  */
 export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
-  get(_target, property, receiver) {
+  get(_target, property) {
     const client = getClient();
-    const value = Reflect.get(client, property, receiver);
+    const value = Reflect.get(client, property, client);
     if (typeof value === "function") {
       return value.bind(client);
     }

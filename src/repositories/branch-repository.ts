@@ -5,7 +5,7 @@ import { normalizeCode, normalizeKey } from "@/lib/normalize";
 import { buildPaginatedResult } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
 import type { PaginatedResult, PaginationParams, SortParams } from "@/types/pagination";
-import { NOT_DELETED, contains, orderByWithTiebreak } from "./base";
+import { NOT_DELETED, contains, findPageAndTotal, orderByWithTiebreak } from "./base";
 import { withPrismaErrors } from "./prisma-errors";
 import type { Prisma } from "@generated/prisma/client";
 
@@ -88,7 +88,7 @@ export async function list(
   const where = listWhere(filters);
 
   const [items, total] = await withPrismaErrors("branch.list", () =>
-    prisma.$transaction([
+    findPageAndTotal(
       prisma.branch.findMany({
         where,
         select: LIST_SELECT,
@@ -97,7 +97,7 @@ export async function list(
         take: pagination.take,
       }),
       prisma.branch.count({ where }),
-    ]),
+    ),
   );
 
   return buildPaginatedResult(items, total, pagination);
@@ -299,7 +299,7 @@ export async function listMatching(
   const where = listWhere(filters);
 
   const [rows, total] = await withPrismaErrors("branch.listMatching", () =>
-    prisma.$transaction([
+    findPageAndTotal(
       prisma.branch.findMany({
         where,
         select: LIST_SELECT,
@@ -307,7 +307,7 @@ export async function listMatching(
         take,
       }),
       prisma.branch.count({ where }),
-    ]),
+    ),
   );
 
   return { rows, total };

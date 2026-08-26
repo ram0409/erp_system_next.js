@@ -4,7 +4,7 @@ import type { HolidayType, RecordStatus } from "@/constants/status";
 import { buildPaginatedResult } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
 import type { PaginatedResult, PaginationParams, SortParams } from "@/types/pagination";
-import { contains, orderByWithTiebreak } from "./base";
+import { contains, findPageAndTotal, orderByWithTiebreak } from "./base";
 import { withPrismaErrors } from "./prisma-errors";
 import type { Prisma } from "@generated/prisma/client";
 
@@ -67,7 +67,7 @@ export async function list(
   }
 
   const [items, total] = await withPrismaErrors("holiday.list", () =>
-    prisma.$transaction([
+    findPageAndTotal(
       prisma.holiday.findMany({
         where,
         select: LIST_SELECT,
@@ -76,7 +76,7 @@ export async function list(
         take: pagination.take,
       }),
       prisma.holiday.count({ where }),
-    ]),
+    ),
   );
 
   return buildPaginatedResult(items, total, pagination);
