@@ -32,7 +32,14 @@ export const getActorContext = cache(async (): Promise<ActorContext | null> => {
     return null;
   }
 
-  const actor = await findActorByPublicId(claims.userPublicId);
+  let actor;
+  try {
+    actor = await findActorByPublicId(claims.userPublicId);
+  } catch {
+    // Unreachable Postgres (typical on Vercel with a localhost DATABASE_URL)
+    // must not turn the login page into a 500 with no UI.
+    return null;
+  }
   if (!actor) {
     return null;
   }
