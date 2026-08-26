@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
-import { resolveMigrateDatabaseUrl } from "./src/config/resolve-env";
+import { resolveMigrateDatabaseUrl, sanitizeRuntimeDatabaseUrl } from "./src/config/resolve-env";
 
 /**
  * Prisma 7 reads connection details from here rather than from schema.prisma.
@@ -25,6 +25,6 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: datasourceUrl,
+    url: sanitizeRuntimeDatabaseUrl(datasourceUrl),
   },
 });

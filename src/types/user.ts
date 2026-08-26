@@ -13,6 +13,7 @@ export interface UserListItem {
   readonly email: string;
   readonly phone: string | null;
   readonly designation: string | null;
+  readonly joinDate: string | null;
   readonly status: RecordStatus;
   readonly lastLoginAt: string | null;
   readonly createdAt: string;
@@ -27,6 +28,16 @@ export interface UserListItem {
     readonly code: string;
     readonly name: string;
   };
+  readonly department: {
+    readonly publicId: string;
+    readonly code: string;
+    readonly name: string;
+  } | null;
+  readonly jobTitle: {
+    readonly publicId: string;
+    readonly code: string;
+    readonly name: string;
+  } | null;
 }
 
 export interface UserDetail extends UserListItem {
@@ -57,6 +68,8 @@ export interface UserRoleOption {
 export interface UserAssignmentOptions {
   readonly branches: readonly UserBranchOption[];
   readonly roles: readonly UserRoleOption[];
+  readonly departments: readonly UserBranchOption[];
+  readonly designations: readonly UserBranchOption[];
   readonly superAdminCount: number;
 }
 
@@ -65,4 +78,11 @@ export interface UserExportResult {
   readonly filename: string;
   readonly rowCount: number;
   readonly truncated: boolean;
+}
+
+export interface EmployeeOption {
+  readonly publicId: string;
+  readonly employeeCode: string;
+  readonly firstName: string;
+  readonly lastName: string;
 }

@@ -62,6 +62,7 @@ export function DataTable<TRow>({
                 ? "Try a different search term or clear your filters."
                 : "Records will appear here once they are added."
             }
+            className="px-5 pb-5"
           />
         )}
       </>
@@ -69,44 +70,46 @@ export function DataTable<TRow>({
   }
 
   return (
-    <TableContainer>
-      <Table>
-        {caption ? <caption className="sr-only">{caption}</caption> : null}
-        <TableHeader>
-          <TableRow>
-            {columns.map((column) => (
-              <TableHead
-                key={column.id}
-                className={cn(
-                  column.hideBelowMd && "hidden md:table-cell",
-                  column.align === "right" && "text-right",
-                  column.headerClassName,
-                )}
-              >
-                {column.header}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row) => (
-            <TableRow key={getRowId(row)}>
+    <div className="px-5 pt-4">
+      <TableContainer className="border-border/80 rounded-sm border">
+        <Table>
+          {caption ? <caption className="sr-only">{caption}</caption> : null}
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
               {columns.map((column) => (
-                <TableCell
+                <TableHead
                   key={column.id}
                   className={cn(
                     column.hideBelowMd && "hidden md:table-cell",
                     column.align === "right" && "text-right",
-                    column.className,
+                    column.headerClassName,
                   )}
                 >
-                  {column.cell(row)}
-                </TableCell>
+                  {column.header}
+                </TableHead>
               ))}
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow key={getRowId(row)}>
+                {columns.map((column) => (
+                  <TableCell
+                    key={column.id}
+                    className={cn(
+                      column.hideBelowMd && "hidden md:table-cell",
+                      column.align === "right" && "text-right",
+                      column.className,
+                    )}
+                  >
+                    {column.cell(row)}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </div>
   );
 }

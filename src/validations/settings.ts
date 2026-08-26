@@ -1,22 +1,22 @@
 import { z } from "zod";
 
 /**
- * Shared by the General Settings form and the update action. Empty optional
+ * Shared by the Company Information form and the update action. Empty optional
  * strings are allowed here and collapsed to `null` in the service.
  */
 
 const organizationCodeSchema = z
   .string()
   .trim()
-  .min(1, "Organisation code is required")
-  .max(32, "Organisation code is too long")
+  .min(1, "Company code is required")
+  .max(32, "Company code is too long")
   .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/, "Use letters, numbers, dots, hyphens or underscores only");
 
 const organizationNameSchema = z
   .string()
   .trim()
-  .min(1, "Organisation name is required")
-  .max(160, "Organisation name is too long");
+  .min(1, "Company name is required")
+  .max(160, "Company name is too long");
 
 function optionalText(max: number, tooLong: string) {
   return z.string().trim().max(max, tooLong);

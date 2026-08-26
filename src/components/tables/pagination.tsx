@@ -33,7 +33,7 @@ export function Pagination({ meta }: PaginationProps) {
   return (
     <nav
       aria-label="Pagination"
-      className="border-border flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+      className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
     >
       <p className="text-muted-foreground text-sm" aria-live="polite">
         {totalItems === 0

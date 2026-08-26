@@ -83,6 +83,8 @@ export const USER_MESSAGES = {
   SUPER_ADMIN_EDIT: "Only a Super Admin can change a Super Admin account.",
   BRANCH_INACTIVE: "Assign an active branch.",
   ROLE_INACTIVE: "Assign an active role.",
+  DEPARTMENT_INACTIVE: "Assign an active department, or leave it empty.",
+  DESIGNATION_INACTIVE: "Assign an active designation, or leave it empty.",
   RESET_INACTIVE: "Activate the account before sending a password reset.",
   RESET_COOLDOWN: "A reset email was sent recently. Wait a minute before sending another.",
   RESET_EMAIL_FAILED: "The password reset email could not be sent. Try again later.",
@@ -99,5 +101,46 @@ export const PROFILE_MESSAGES = {
 
 export const SETTINGS_MESSAGES = {
   ORGANIZATION_MISSING: "Organisation settings could not be loaded.",
-  CODE_TAKEN: "Organisation code is already in use.",
+  CODE_TAKEN: "Company code is already in use.",
+} as const;
+
+export const DEPARTMENT_MESSAGES = {
+  CODE_TAKEN: "Department code is already in use.",
+  NAME_TAKEN: "Department name is already in use.",
+  USERS_ASSIGNED_DEACTIVATE: "Reassign employees before deactivating this department.",
+  USERS_ASSIGNED_DELETE: "Reassign employees before deleting this department.",
+  BRANCH_INACTIVE: "Assign an active branch, or leave branch empty.",
+} as const;
+
+export const DESIGNATION_MESSAGES = {
+  CODE_TAKEN: "Designation code is already in use.",
+  NAME_TAKEN: "Designation name is already in use.",
+  USERS_ASSIGNED_DEACTIVATE: "Reassign employees before deactivating this designation.",
+  USERS_ASSIGNED_DELETE: "Reassign employees before deleting this designation.",
+} as const;
+
+export const ATTENDANCE_MESSAGES = {
+  DUPLICATE_DAY: "Attendance for this employee on that date already exists.",
+} as const;
+
+export const LEAVE_MESSAGES = {
+  DATE_ORDER: "The end date must be on or after the start date.",
+} as const;
+
+export const HOLIDAY_MESSAGES = {
+  DATE_TAKEN: "A holiday is already recorded on that date.",
+} as const;
+
+export const PROJECT_MESSAGES = {
+  CODE_TAKEN: "Project code is already in use.",
+  DATE_ORDER: "The end date must be on or after the start date.",
+  TASKS_ASSIGNED_DELETE: "Remove or reassign tasks before deleting this project.",
+} as const;
+
+export const TASK_MESSAGES = {
+  WORKLOGS_ASSIGNED_DELETE: "Remove worklogs before deleting this task.",
+} as const;
+
+export const WORKLOG_MESSAGES = {
+  HOURS_RANGE: "Enter hours between 0.25 and 24.",
 } as const;

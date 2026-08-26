@@ -1,65 +1,56 @@
 import "server-only";
 
 import { PrismaPg } from "@prisma/adapter-pg";
-import { attachDatabasePool } from "@vercel/functions";
-import { Pool } from "pg";
+import { type PoolConfig } from "pg";
 
 import { env, isDevelopment, isProduction } from "@/config/env";
+import { isLoopbackHost, sanitizeRuntimeDatabaseUrl } from "@/config/resolve-env";
 import { PrismaClient } from "@generated/prisma/client";
 
 /**
  * The single Prisma client for the process.
  *
- * Prisma 7 requires an explicit driver adapter, so the `pg` pool is owned here.
+ * Prisma 7 requires an explicit driver adapter. The adapter is given a pool
+ * *config*, not a `pg.Pool` instance: `PrismaPg` uses `instanceof Pool`, and a
+ * second copy of `pg` on Vercel makes that check fail, which turns sign-in into
+ * INTERNAL_ERROR.
+ *
  * The instance is cached on `globalThis` so hot reload does not open a new pool
  * on every save. The cache is keyed by the generated `PrismaClient` class: after
  * `prisma generate`, that class identity changes, and a cached client from the
- * previous generate is missing new models (for example `loginAttempt`). Reusing
- * it turns a valid sign-in into INTERNAL_ERROR.
- *
- * Model accessors on Prisma 7 (`prisma.user`, `prisma.loginAttempt`, …) are
- * getters. A Proxy must invoke them with the real client as `this`, otherwise
- * every query is `undefined.count()` and the action wrapper reports INTERNAL_ERROR.
+ * previous generate is missing new models.
  */
 
 const globalForPrisma = globalThis as unknown as {
   prismaClient?: PrismaClient;
-  prismaPool?: Pool;
   prismaClientRef?: typeof PrismaClient;
 };
 
-function poolSsl(): boolean | { rejectUnauthorized: boolean } | undefined {
-  if (process.env.VERCEL !== "1") {
+function poolSsl(connectionString: string): PoolConfig["ssl"] {
+  if (isLoopbackHost(connectionString) || /sslmode=disable/i.test(connectionString)) {
     return undefined;
   }
-  if (/sslmode=disable/i.test(env.DATABASE_URL)) {
-    return undefined;
-  }
-  // Managed Postgres on Vercel/Neon/Supabase requires TLS. Local `next start` is
-  // unaffected because VERCEL is unset.
+  // Managed Postgres (Neon, Supabase, RDS) requires TLS. `rejectUnauthorized`
+  // is false because serverless runtimes do not always ship the host CA bundle.
   return { rejectUnauthorized: false };
 }
 
-function createPool(): Pool {
+function poolConfig(): PoolConfig {
   const onVercel = process.env.VERCEL === "1";
-  const pool = new Pool({
-    connectionString: env.DATABASE_URL,
-    max: isProduction ? 10 : 5,
+  const connectionString = sanitizeRuntimeDatabaseUrl(env.DATABASE_URL);
+
+  return {
+    connectionString,
+    max: onVercel ? 1 : isProduction ? 10 : 5,
     idleTimeoutMillis: onVercel ? 5_000 : 30_000,
     connectionTimeoutMillis: 10_000,
-    ssl: poolSsl(),
-  });
-
-  if (onVercel) {
-    attachDatabasePool(pool);
-  }
-
-  return pool;
+    ssl: poolSsl(connectionString),
+  };
 }
 
-function createClient(pool: Pool): PrismaClient {
+function createClient(): PrismaClient {
   return new PrismaClient({
-    adapter: new PrismaPg(pool),
+    adapter: new PrismaPg(poolConfig()),
     log: isDevelopment ? ["warn", "error"] : ["error"],
   });
 }
@@ -69,13 +60,8 @@ function clientHasCurrentModels(client: PrismaClient): boolean {
 }
 
 function disposeCachedClient(): void {
-  const pool = globalForPrisma.prismaPool;
   globalForPrisma.prismaClient = undefined;
-  globalForPrisma.prismaPool = undefined;
   globalForPrisma.prismaClientRef = undefined;
-  if (pool) {
-    void pool.end().catch(() => undefined);
-  }
 }
 
 function getClient(): PrismaClient {
@@ -85,9 +71,7 @@ function getClient(): PrismaClient {
 
   if (stale) {
     disposeCachedClient();
-    const pool = createPool();
-    const client = createClient(pool);
-    globalForPrisma.prismaPool = pool;
+    const client = createClient();
     globalForPrisma.prismaClient = client;
     globalForPrisma.prismaClientRef = PrismaClient;
     return client;

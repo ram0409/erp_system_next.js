@@ -43,7 +43,9 @@ const userFieldsSchema = z.object({
   lastName: personNameSchema,
   email: emailSchema,
   phone: optionalPhoneField,
-  designation: optionalText(96, "Designation is too long"),
+  departmentPublicId: z.string().trim().max(32),
+  designationPublicId: z.string().trim().max(32),
+  joinDate: z.string().trim().max(10),
   branchPublicId: publicIdSchema,
   rolePublicId: publicIdSchema,
 });
@@ -74,5 +76,6 @@ export const exportUsersSchema = z.object({
   status: z.enum(RECORD_STATUS_VALUES).optional(),
   branchPublicId: publicIdSchema.optional(),
   rolePublicId: publicIdSchema.optional(),
+  excludeSuperAdmin: z.boolean().optional(),
 });
 export type ExportUsersInput = z.infer<typeof exportUsersSchema>;

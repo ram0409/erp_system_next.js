@@ -1,7 +1,12 @@
 import "server-only";
 
-import { isPermissionKey, type PermissionKey } from "@/constants/permissions";
-import type { RecordStatus } from "@/constants/status";
+import {
+  PERMISSION_ACTIONS,
+  PERMISSION_MODULES,
+  isPermissionKey,
+  type PermissionKey,
+} from "@/constants/permissions";
+import { RECORD_STATUS, type RecordStatus } from "@/constants/status";
 import { normalizeCode, normalizeEmail, normalizeKey } from "@/lib/normalize";
 import { prisma } from "@/lib/prisma";
 import { buildPaginatedResult } from "@/lib/pagination";
@@ -27,7 +32,7 @@ const ACTOR_SELECT = {
   firstName: true,
   lastName: true,
   email: true,
-  designation: true,
+  designation: { select: { name: true } },
   avatarPath: true,
   status: true,
   tokenVersion: true,
@@ -68,12 +73,14 @@ const LIST_SELECT = {
   lastName: true,
   email: true,
   phone: true,
-  designation: true,
+  joinDate: true,
   status: true,
   lastLoginAt: true,
   createdAt: true,
   role: { select: { publicId: true, name: true, slug: true, isSuperAdmin: true } },
   branch: { select: { publicId: true, code: true, name: true } },
+  department: { select: { publicId: true, code: true, name: true } },
+  designation: { select: { publicId: true, code: true, name: true } },
 } satisfies Prisma.UserSelect;
 
 const DETAIL_SELECT = {
@@ -114,6 +121,7 @@ export interface UserListFilters {
   readonly branchId?: number | undefined;
   readonly roleId?: number | undefined;
   readonly status?: RecordStatus | undefined;
+  readonly excludeSuperAdmin?: boolean | undefined;
 }
 
 export interface CreateUserInput {
@@ -123,7 +131,9 @@ export interface CreateUserInput {
   readonly email: string;
   readonly passwordHash: string;
   readonly phone?: string | null;
-  readonly designation?: string | null;
+  readonly joinDate?: Date | null;
+  readonly departmentId?: number | null;
+  readonly designationId?: number | null;
   readonly branchId: number;
   readonly roleId: number;
   readonly status: RecordStatus;
@@ -136,7 +146,9 @@ export interface UpdateUserInput {
   readonly lastName?: string;
   readonly email?: string;
   readonly phone?: string | null;
-  readonly designation?: string | null;
+  readonly joinDate?: Date | null;
+  readonly departmentId?: number | null;
+  readonly designationId?: number | null;
   readonly branchId?: number;
   readonly roleId?: number;
   readonly status?: RecordStatus;
@@ -157,6 +169,9 @@ function buildListWhere(filters: UserListFilters): Prisma.UserWhereInput {
   if (filters.roleId !== undefined) {
     where.roleId = filters.roleId;
   }
+  if (filters.excludeSuperAdmin) {
+    where.role = { isSuperAdmin: false };
+  }
 
   const term = filters.search?.trim();
   if (term) {
@@ -165,7 +180,8 @@ function buildListWhere(filters: UserListFilters): Prisma.UserWhereInput {
       { lastName: contains(term) },
       { email: contains(term) },
       { employeeCode: contains(term) },
-      { designation: contains(term) },
+      { department: { name: contains(term) } },
+      { designation: { name: contains(term) } },
     ];
   }
 
@@ -205,6 +221,18 @@ export function findByNormalizedEmail(
   );
 }
 
+export function listEmployeeOptions(): Promise<
+  { publicId: string; employeeCode: string; firstName: string; lastName: string }[]
+> {
+  return withPrismaErrors("user.listEmployeeOptions", () =>
+    prisma.user.findMany({
+      where: { ...NOT_DELETED, status: "ACTIVE", role: { isSuperAdmin: false } },
+      select: { publicId: true, employeeCode: true, firstName: true, lastName: true },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    }),
+  );
+}
+
 export function findByIdForPasswordReset(userId: number): Promise<{
   id: number;
   publicId: string;
@@ -240,6 +268,16 @@ export function findByPublicId(publicId: string): Promise<UserDetailRow | null> 
   return withPrismaErrors("user.findByPublicId", () =>
     prisma.user.findFirst({ where: { publicId, ...NOT_DELETED }, select: DETAIL_SELECT }),
   );
+}
+
+export function findIdByPublicId(publicId: string): Promise<number | null> {
+  return withPrismaErrors("user.findIdByPublicId", async () => {
+    const row = await prisma.user.findFirst({
+      where: { publicId, ...NOT_DELETED },
+      select: { id: true },
+    });
+    return row?.id ?? null;
+  });
 }
 
 export function findPasswordHash(
@@ -290,7 +328,9 @@ export function create(input: CreateUserInput): Promise<UserDetailRow> {
         emailNormalized: normalizeEmail(input.email),
         passwordHash: input.passwordHash,
         phone: input.phone ?? null,
-        designation: input.designation ?? null,
+        joinDate: input.joinDate ?? null,
+        departmentId: input.departmentId ?? null,
+        designationId: input.designationId ?? null,
         branchId: input.branchId,
         roleId: input.roleId,
         status: input.status,
@@ -316,7 +356,17 @@ export function update(publicId: string, input: UpdateUserInput): Promise<UserDe
   if (input.firstName !== undefined) data.firstName = input.firstName;
   if (input.lastName !== undefined) data.lastName = input.lastName;
   if (input.phone !== undefined) data.phone = input.phone;
-  if (input.designation !== undefined) data.designation = input.designation;
+  if (input.joinDate !== undefined) data.joinDate = input.joinDate;
+  if (input.departmentId !== undefined) {
+    data.department =
+      input.departmentId === null ? { disconnect: true } : { connect: { id: input.departmentId } };
+  }
+  if (input.designationId !== undefined) {
+    data.designation =
+      input.designationId === null
+        ? { disconnect: true }
+        : { connect: { id: input.designationId } };
+  }
   if (input.status !== undefined) data.status = input.status;
   if (input.branchId !== undefined) data.branch = { connect: { id: input.branchId } };
   if (input.roleId !== undefined) data.role = { connect: { id: input.roleId } };
@@ -489,6 +539,18 @@ export function countByStatus(): Promise<{ status: RecordStatus; count: number }
   });
 }
 
+/** Workforce counts used by the dashboard. Super Admin is not an employee record. */
+export function countEmployeesByStatus(): Promise<{ status: RecordStatus; count: number }[]> {
+  return withPrismaErrors("user.countEmployeesByStatus", async () => {
+    const grouped = await prisma.user.groupBy({
+      by: ["status"],
+      where: { ...NOT_DELETED, role: { isSuperAdmin: false } },
+      _count: { _all: true },
+    });
+    return grouped.map((row) => ({ status: row.status, count: row._count._all }));
+  });
+}
+
 export async function countGroupedByBranch(): Promise<
   { publicId: string; code: string; name: string; count: number }[]
 > {
@@ -595,6 +657,40 @@ export function isEmployeeCodeTaken(code: string, exceptPublicId?: string): Prom
       select: { id: true },
     });
     return found !== null;
+  });
+}
+
+/**
+ * Super Admins and users who can edit leave (HR / managers). Used to fan out
+ * leave-raised notifications without sending them back to the requester.
+ */
+export function findLeaveReviewerIds(excludeUserId: number): Promise<number[]> {
+  return withPrismaErrors("user.findLeaveReviewerIds", async () => {
+    const rows = await prisma.user.findMany({
+      where: {
+        ...NOT_DELETED,
+        status: RECORD_STATUS.ACTIVE,
+        id: { not: excludeUserId },
+        role: {
+          status: RECORD_STATUS.ACTIVE,
+          OR: [
+            { isSuperAdmin: true },
+            {
+              permissions: {
+                some: {
+                  permission: {
+                    module: PERMISSION_MODULES.LEAVE,
+                    action: PERMISSION_ACTIONS.EDIT,
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+      select: { id: true },
+    });
+    return rows.map((row) => row.id);
   });
 }
 

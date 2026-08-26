@@ -1,6 +1,6 @@
 "use client";
 
-import { BellIcon, Building2Icon } from "lucide-react";
+import { Building2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
@@ -8,11 +8,10 @@ import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { UserMenu } from "@/components/layout/user-menu";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { NavItem } from "@/constants/navigation";
 import { ROUTES } from "@/constants/routes";
 import { signOutAction } from "@/features/auth/actions";
+import { NotificationBell } from "@/features/notifications/components/notification-bell";
 import type { SessionUser } from "@/types/session";
 
 interface AppHeaderProps {
@@ -57,14 +56,7 @@ export function AppHeader({ user, navItems, appName }: AppHeaderProps) {
 
         <ThemeToggle />
 
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Notifications" disabled>
-              <BellIcon />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Notifications — coming soon</TooltipContent>
-        </Tooltip>
+        <NotificationBell />
 
         <UserMenu user={user} onSignOut={handleSignOut} />
       </div>

@@ -9,9 +9,9 @@ import { hasAllPermissions } from "@/lib/authorization";
 import { requirePageAccess } from "@/lib/page-guard";
 import { getOrganizationSettings } from "@/services/settings-service";
 
-export const metadata: Metadata = { title: "General Settings" };
+export const metadata: Metadata = { title: "Company Information" };
 
-export default async function GeneralSettingsPage() {
+export default async function CompanyInformationPage() {
   const access = await requirePageAccess(PERMISSIONS.SETTINGS.VIEW);
 
   if (!access.allowed) {
@@ -27,8 +27,8 @@ export default async function GeneralSettingsPage() {
   return (
     <PageContainer>
       <PageHeader
-        title="General Settings"
-        description="Organisation identity and contact details used across the console."
+        title="Company Information"
+        description="Company identity and contact details used across the console."
       />
       <GeneralSettingsForm
         settings={settings}

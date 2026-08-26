@@ -55,6 +55,67 @@ enum AuditAction {
   @@map("audit_action")
 }
 
+enum AttendanceDayStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  ON_LEAVE
+  WEEK_OFF
+
+  @@map("attendance_day_status")
+}
+
+enum LeaveType {
+  CASUAL
+  SICK
+  EARNED
+  UNPAID
+
+  @@map("leave_type")
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+
+  @@map("leave_status")
+}
+
+enum HolidayType {
+  NATIONAL
+  OPTIONAL
+  COMPANY
+
+  @@map("holiday_type")
+}
+
+enum NotificationType {
+  LEAVE_REQUESTED
+
+  @@map("notification_type")
+}
+
+enum ProjectStatus {
+  PLANNED
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+
+  @@map("project_status")
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  DONE
+
+  @@map("task_status")
+}
+
 /// The owning company. Modelled as a table from the start so a second legal entity
 /// is a row rather than a migration, even though this install seeds exactly one.
 model Organization {
@@ -115,7 +176,8 @@ model Branch {
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  users User[]
+  users       User[]
+  departments Department[]
 
   // Scoped to the organization: two legal entities may legitimately both have a "HO".
   @@unique([organizationId, codeNormalized])
@@ -124,6 +186,52 @@ model Branch {
   @@index([deletedAt])
   @@index([nameNormalized])
   @@map("branches")
+}
+
+model Department {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(cuid(2)) @map("public_id")
+
+  code           String @db.VarChar(32)
+  codeNormalized String @unique @map("code_normalized") @db.VarChar(32)
+  name           String @db.VarChar(160)
+  nameNormalized String @unique @map("name_normalized") @db.VarChar(160)
+  description    String? @db.VarChar(400)
+
+  branchId Int?    @map("branch_id")
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  status RecordStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users User[]
+
+  @@index([status])
+  @@index([branchId])
+  @@map("departments")
+}
+
+model Designation {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(cuid(2)) @map("public_id")
+
+  code           String @db.VarChar(32)
+  codeNormalized String @unique @map("code_normalized") @db.VarChar(32)
+  name           String @db.VarChar(160)
+  nameNormalized String @unique @map("name_normalized") @db.VarChar(160)
+  description    String? @db.VarChar(400)
+
+  status RecordStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users User[]
+
+  @@index([status])
+  @@map("designations")
 }
 
 model Role {
@@ -207,9 +315,10 @@ model User {
 
   passwordHash String  @map("password_hash")
   phone        String? @db.VarChar(32)
-  designation  String? @db.VarChar(96)
   /// Public path of the uploaded profile photo, e.g. `/uploads/avatars/{id}.jpg`.
   avatarPath   String? @map("avatar_path") @db.VarChar(240)
+
+  joinDate DateTime? @map("join_date") @db.Date
 
   // Restrict, not Cascade: a branch or role still holding users must not be
   // deletable, even by a service that forgot to check.
@@ -218,6 +327,12 @@ model User {
 
   roleId Int  @map("role_id")
   role   Role @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  departmentId Int?        @map("department_id")
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  designationId Int?         @map("designation_id")
+  designation   Designation? @relation(fields: [designationId], references: [id], onDelete: SetNull)
 
   status RecordStatus @default(ACTIVE)
 
@@ -237,15 +352,185 @@ model User {
 
   passwordResetTokens PasswordResetToken[]
   auditLogs           AuditLog[]
+  attendanceDays      Attendance[]
+  leaveRequests       LeaveRequest[]
+  notifications       Notification[]
+  ownedProjects       Project[]            @relation("ProjectOwner")
+  assignedTasks       Task[]               @relation("TaskAssignee")
+  worklogs            Worklog[]
 
   @@index([branchId])
   @@index([roleId])
+  @@index([departmentId])
+  @@index([designationId])
   @@index([status])
   @@index([deletedAt])
   @@index([lastName, firstName])
   @@index([branchId, status])
   @@index([roleId, status])
   @@map("users")
+}
+
+model Attendance {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(cuid(2)) @map("public_id")
+
+  userId Int  @map("user_id")
+  user   User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  workDate DateTime            @map("work_date") @db.Date
+  status   AttendanceDayStatus
+  checkIn  String?             @map("check_in") @db.VarChar(8)
+  checkOut String?             @map("check_out") @db.VarChar(8)
+  notes    String?             @db.VarChar(400)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, workDate])
+  @@index([workDate])
+  @@index([status])
+  @@map("attendance_days")
+}
+
+model LeaveRequest {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(cuid(2)) @map("public_id")
+
+  userId Int  @map("user_id")
+  user   User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  type      LeaveType
+  startDate DateTime    @map("start_date") @db.Date
+  endDate   DateTime    @map("end_date") @db.Date
+  reason    String?     @db.VarChar(400)
+  status    LeaveStatus @default(PENDING)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@map("leave_requests")
+}
+
+model Notification {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(cuid(2)) @map("public_id")
+
+  recipientId Int  @map("recipient_id")
+  recipient   User @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  type  NotificationType
+  title String           @db.VarChar(160)
+  body  String           @db.VarChar(400)
+  href  String?          @db.VarChar(240)
+
+  entityType     String? @map("entity_type") @db.VarChar(80)
+  entityPublicId String? @map("entity_public_id") @db.VarChar(32)
+
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([recipientId, createdAt])
+  @@index([recipientId, readAt])
+  @@map("notifications")
+}
+
+model Holiday {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(cuid(2)) @map("public_id")
+
+  holidayDate DateTime    @unique @map("holiday_date") @db.Date
+  name        String      @db.VarChar(160)
+  type        HolidayType
+  status      RecordStatus @default(ACTIVE)
+  notes       String?     @db.VarChar(400)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("holidays")
+}
+
+model Project {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(cuid(2)) @map("public_id")
+
+  code           String @db.VarChar(32)
+  codeNormalized String @unique @map("code_normalized") @db.VarChar(32)
+  name           String @db.VarChar(160)
+  nameNormalized String @map("name_normalized") @db.VarChar(160)
+  description    String? @db.VarChar(400)
+
+  ownerUserId Int  @map("owner_user_id")
+  owner       User @relation("ProjectOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+
+  startDate DateTime?     @map("start_date") @db.Date
+  endDate   DateTime?     @map("end_date") @db.Date
+  status    ProjectStatus @default(PLANNED)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tasks Task[]
+
+  @@index([status])
+  @@index([ownerUserId])
+  @@index([nameNormalized])
+  @@map("projects")
+}
+
+model Task {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(cuid(2)) @map("public_id")
+
+  projectId Int     @map("project_id")
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  title       String  @db.VarChar(160)
+  description String? @db.VarChar(400)
+
+  assigneeUserId Int?  @map("assignee_user_id")
+  assignee       User? @relation("TaskAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+
+  dueDate DateTime?  @map("due_date") @db.Date
+  status  TaskStatus @default(TODO)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  worklogs Worklog[]
+
+  @@index([projectId])
+  @@index([assigneeUserId])
+  @@index([status])
+  @@map("tasks")
+}
+
+model Worklog {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(cuid(2)) @map("public_id")
+
+  taskId Int  @map("task_id")
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Restrict)
+
+  userId Int  @map("user_id")
+  user   User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  workDate DateTime @map("work_date") @db.Date
+  hours    Decimal  @db.Decimal(5, 2)
+  notes    String?  @db.VarChar(400)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([workDate])
+  @@map("worklogs")
 }
 
 /// Reset tokens are stored as hashes: a leaked database row must not be redeemable.

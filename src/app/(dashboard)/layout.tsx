@@ -1,16 +1,30 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { NavigationProgress } from "@/components/layout/navigation-progress";
+import { PageContainer } from "@/components/layout/page-container";
 import { PermissionsProvider } from "@/components/providers/permissions-provider";
+import { LoadingState } from "@/components/shared/loading-state";
+import { Card } from "@/components/ui/card";
 import { publicEnv } from "@/config/public-env";
 import { CURRENT_PATH_HEADER } from "@/constants/auth";
 import { NAVIGATION, filterNavigation } from "@/constants/navigation";
 import { ROUTES } from "@/constants/routes";
 import { permissionChecker, toPermissionSnapshot } from "@/lib/authorization";
 import { getActorContext, requiresPasswordChange } from "@/lib/session";
+
+function PageFallback() {
+  return (
+    <PageContainer>
+      <Card>
+        <LoadingState />
+      </Card>
+    </PageContainer>
+  );
+}
 
 /**
  * The authorization boundary for every authenticated screen.
@@ -44,12 +58,13 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   return (
     <PermissionsProvider value={toPermissionSnapshot(actor)}>
+      <NavigationProgress />
       <div className="app-canvas flex min-h-dvh">
         <AppSidebar items={navItems} appName={appName} />
         <div className="flex min-w-0 flex-1 flex-col">
           <AppHeader user={actor.user} navItems={navItems} appName={appName} />
           <main id="main-content" className="flex-1">
-            {children}
+            <Suspense fallback={<PageFallback />}>{children}</Suspense>
           </main>
         </div>
       </div>
