@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import { redirectToLogin } from "@/lib/session-client";
+import { isLeavingForLogin, redirectToLogin } from "@/lib/session-client";
 
 interface SessionExpiryGuardProps {
   readonly expiresAt: string;
@@ -17,6 +17,9 @@ interface SessionExpiryGuardProps {
 export function SessionExpiryGuard({ expiresAt }: SessionExpiryGuardProps) {
   useEffect(() => {
     function leaveIfExpired() {
+      if (isLeavingForLogin()) {
+        return;
+      }
       if (Date.now() >= new Date(expiresAt).getTime()) {
         redirectToLogin();
       }
