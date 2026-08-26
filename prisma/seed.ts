@@ -3,11 +3,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 
-import {
-  PERMISSION_ACTION_LABELS,
-  PERMISSION_CATALOG,
-  buildPermissionKey,
-} from "../src/constants/permissions";
+import { PERMISSION_ACTION_LABELS, PERMISSION_CATALOG } from "../src/constants/permissions";
 import { SEEDED_ROLE_GRANTS } from "../src/constants/role-grants";
 import { BRANCH_TYPES, RECORD_STATUS, ROLE_SLUGS, type RoleSlug } from "../src/constants/status";
 import { normalizeCode, normalizeKey } from "../src/lib/normalize";
@@ -111,37 +107,63 @@ async function main(): Promise<void> {
       });
 
       // Permission rows are generated from the catalog, so adding an ERP module is
-      // a constants edit plus a re-seed rather than a migration.
+      // a constants edit plus a re-seed rather than a migration. Batch inserts keep
+      // the seed inside the transaction timeout when the catalog grows.
+      const permissionSeeds = PERMISSION_CATALOG.flatMap((definition) =>
+        definition.actions.map((action, actionIndex) => ({
+          module: definition.module,
+          action,
+          label: `${definition.label} - ${PERMISSION_ACTION_LABELS[action]}`,
+          description: definition.description,
+          sortOrder: definition.order * 100 + actionIndex,
+        })),
+      );
+
+      await tx.permission.createMany({ data: permissionSeeds, skipDuplicates: true });
+
+      const storedPermissions = await tx.permission.findMany({
+        select: {
+          id: true,
+          module: true,
+          action: true,
+          label: true,
+          description: true,
+          sortOrder: true,
+        },
+      });
+
+      const expectedByPair = new Map(
+        permissionSeeds.map((seed) => [`${seed.module}:${seed.action}`, seed]),
+      );
+
       const permissionIdsByKey = new Map<string, number>();
-      let permissionCount = 0;
 
-      for (const definition of PERMISSION_CATALOG) {
-        for (const [actionIndex, action] of definition.actions.entries()) {
-          const key = buildPermissionKey(definition.module, action);
-          const label = `${definition.label} - ${PERMISSION_ACTION_LABELS[action]}`;
-          const sortOrder = definition.order * 100 + actionIndex;
+      for (const row of storedPermissions) {
+        const pair = `${row.module}:${row.action}`;
+        const expected = expectedByPair.get(pair);
+        if (!expected) {
+          continue;
+        }
 
-          const permission = await tx.permission.upsert({
-            where: { module_action: { module: definition.module, action } },
-            // Labels and ordering are catalog-owned, so they are refreshed on every
-            // run; grants reference the row by id and are unaffected.
-            update: { label, description: definition.description, sortOrder },
-            create: {
-              module: definition.module,
-              action,
-              label,
-              description: definition.description,
-              sortOrder,
+        permissionIdsByKey.set(pair, row.id);
+
+        if (
+          row.label !== expected.label ||
+          row.description !== expected.description ||
+          row.sortOrder !== expected.sortOrder
+        ) {
+          await tx.permission.update({
+            where: { id: row.id },
+            data: {
+              label: expected.label,
+              description: expected.description,
+              sortOrder: expected.sortOrder,
             },
-            select: { id: true },
           });
-
-          permissionIdsByKey.set(key, permission.id);
-          permissionCount += 1;
         }
       }
 
-      const roleIdsBySlug = new Map<string, number>();
+      const permissionCount = permissionIdsByKey.size;
 
       for (const roleSeed of ROLE_SEEDS) {
         const role = await tx.role.upsert({
@@ -162,9 +184,8 @@ async function main(): Promise<void> {
           select: { id: true },
         });
 
-        roleIdsBySlug.set(roleSeed.slug, role.id);
-
         const keys = SEEDED_ROLE_GRANTS[roleSeed.slug] ?? [...permissionIdsByKey.keys()];
+        const grantRows: { roleId: number; permissionId: number }[] = [];
 
         for (const key of keys) {
           const permissionId = permissionIdsByKey.get(key);
@@ -175,12 +196,10 @@ async function main(): Promise<void> {
             );
           }
 
-          await tx.rolePermission.upsert({
-            where: { roleId_permissionId: { roleId: role.id, permissionId } },
-            update: {},
-            create: { roleId: role.id, permissionId },
-          });
+          grantRows.push({ roleId: role.id, permissionId });
         }
+
+        await tx.rolePermission.createMany({ data: grantRows, skipDuplicates: true });
       }
 
       const admins = await tx.user.findMany({
@@ -197,7 +216,7 @@ async function main(): Promise<void> {
         admins,
       };
     },
-    { timeout: 30_000 },
+    { timeout: 60_000 },
   );
 
   console.log("Seed complete.\n");

@@ -13,11 +13,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { updateOrganizationSettingsAction } from "@/features/settings/actions";
+import type { ActionResult } from "@/types/api";
 import type { OrganizationSettings } from "@/types/settings";
 import {
   updateOrganizationSettingsSchema,
   type UpdateOrganizationSettingsInput,
 } from "@/validations/settings";
+
+type SaveOrganizationAction = (
+  values: UpdateOrganizationSettingsInput,
+) => Promise<ActionResult<OrganizationSettings>>;
 
 function valuesFromSettings(settings: OrganizationSettings): UpdateOrganizationSettingsInput {
   return {
@@ -38,9 +43,14 @@ function valuesFromSettings(settings: OrganizationSettings): UpdateOrganizationS
 interface GeneralSettingsFormProps {
   readonly settings: OrganizationSettings;
   readonly canEdit: boolean;
+  readonly saveAction?: SaveOrganizationAction;
 }
 
-export function GeneralSettingsForm({ settings, canEdit }: GeneralSettingsFormProps) {
+export function GeneralSettingsForm({
+  settings,
+  canEdit,
+  saveAction = updateOrganizationSettingsAction,
+}: GeneralSettingsFormProps) {
   const router = useRouter();
   const [formError, setFormError] = useState<string | null>(null);
   const formValues = useMemo(() => valuesFromSettings(settings), [settings]);
@@ -61,7 +71,7 @@ export function GeneralSettingsForm({ settings, canEdit }: GeneralSettingsFormPr
     }
     setFormError(null);
 
-    const result = await updateOrganizationSettingsAction(values);
+    const result = await saveAction(values);
 
     if (!result.success) {
       if (result.errors.length > 0) {
@@ -98,14 +108,14 @@ export function GeneralSettingsForm({ settings, canEdit }: GeneralSettingsFormPr
           ) : null}
 
           <FormSection
-            title="Organisation"
+            title="Company"
             description="These details identify the company across the administration console."
           >
             <FormField htmlFor="name" label="Name" required error={errors.name?.message}>
               <Input
                 id="name"
                 autoComplete="organization"
-                placeholder="Enter the organisation name"
+                placeholder="Enter the company name"
                 disabled={disabled}
                 aria-invalid={errors.name ? true : undefined}
                 {...register("name")}
@@ -131,7 +141,7 @@ export function GeneralSettingsForm({ settings, canEdit }: GeneralSettingsFormPr
               <Input
                 id="code"
                 autoComplete="off"
-                placeholder="Enter the organisation code"
+                placeholder="Enter the company code"
                 disabled={disabled}
                 aria-invalid={errors.code ? true : undefined}
                 {...register("code")}

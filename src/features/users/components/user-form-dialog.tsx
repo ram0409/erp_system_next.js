@@ -29,7 +29,9 @@ const EMPTY_VALUES: CreateUserInput = {
   lastName: "",
   email: "",
   phone: "",
-  designation: "",
+  departmentPublicId: "",
+  designationPublicId: "",
+  joinDate: "",
   branchPublicId: "",
   rolePublicId: "",
   password: "",
@@ -47,7 +49,9 @@ function valuesFromDetail(detail: UserDetail): CreateUserInput {
     lastName: detail.lastName,
     email: detail.email,
     phone: detail.phone ?? "",
-    designation: detail.designation ?? "",
+    departmentPublicId: detail.department?.publicId ?? "",
+    designationPublicId: detail.jobTitle?.publicId ?? "",
+    joinDate: detail.joinDate ? detail.joinDate.slice(0, 10) : "",
     branchPublicId: detail.branch.publicId.trim(),
     rolePublicId: detail.role.publicId.trim(),
     mustChangePassword: detail.mustChangePassword,
@@ -63,6 +67,8 @@ interface UserFormDialogProps {
   isLoading?: boolean;
   branches: readonly UserBranchOption[];
   roles: readonly UserRoleOption[];
+  departments: readonly UserBranchOption[];
+  designations: readonly UserBranchOption[];
   actorIsSuperAdmin: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: (message: string) => void;
@@ -75,6 +81,8 @@ export function UserFormDialog({
   isLoading = false,
   branches,
   roles,
+  departments,
+  designations,
   actorIsSuperAdmin,
   onOpenChange,
   onSuccess,
@@ -150,7 +158,9 @@ export function UserFormDialog({
             lastName: values.lastName,
             email: values.email,
             phone: values.phone,
-            designation: values.designation,
+            departmentPublicId: values.departmentPublicId,
+            designationPublicId: values.designationPublicId,
+            joinDate: values.joinDate,
             branchPublicId: values.branchPublicId,
             rolePublicId: values.rolePublicId,
           })
@@ -301,18 +311,71 @@ export function UserFormDialog({
                 {...register("phone")}
               />
             </FormField>
-            <FormField
-              htmlFor="designation"
-              label="Designation"
-              error={errors.designation?.message}
-            >
+            <FormField htmlFor="joinDate" label="Join date" error={errors.joinDate?.message}>
               <Input
-                id="designation"
-                autoComplete="off"
-                placeholder="Enter the designation"
+                id="joinDate"
+                type="date"
                 disabled={readOnly || isSubmitting}
-                aria-invalid={errors.designation ? true : undefined}
-                {...register("designation")}
+                aria-invalid={errors.joinDate ? true : undefined}
+                {...register("joinDate")}
+              />
+            </FormField>
+            <FormField
+              htmlFor="departmentPublicId"
+              label="Department"
+              error={errors.departmentPublicId?.message}
+            >
+              <Controller
+                name="departmentPublicId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value && field.value.length > 0 ? field.value : "none"}
+                    onValueChange={(value) => field.onChange(value === "none" ? "" : value)}
+                    disabled={readOnly || isSubmitting}
+                  >
+                    <SelectTrigger id="departmentPublicId">
+                      <SelectValue placeholder="Select a department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {departments.map((department) => (
+                        <SelectItem key={department.publicId} value={department.publicId}>
+                          {department.code} · {department.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </FormField>
+            <FormField
+              htmlFor="designationPublicId"
+              label="Designation"
+              error={errors.designationPublicId?.message}
+            >
+              <Controller
+                name="designationPublicId"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    value={field.value && field.value.length > 0 ? field.value : "none"}
+                    onValueChange={(value) => field.onChange(value === "none" ? "" : value)}
+                    disabled={readOnly || isSubmitting}
+                  >
+                    <SelectTrigger id="designationPublicId">
+                      <SelectValue placeholder="Select a designation" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {designations.map((item) => (
+                        <SelectItem key={item.publicId} value={item.publicId}>
+                          {item.code} · {item.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               />
             </FormField>
           </FormSection>
@@ -341,13 +404,13 @@ export function UserFormDialog({
                         aria-invalid={errors.branchPublicId ? true : undefined}
                       >
                         <SelectValue placeholder="Select branch">
-                          {selected ? `${selected.code} · ${selected.name}` : null}
+                          {selected ? selected.name : null}
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {branchOptions.map((branch) => (
                           <SelectItem key={branch.publicId} value={branch.publicId}>
-                            {branch.code} · {branch.name}
+                            {branch.name}
                           </SelectItem>
                         ))}
                       </SelectContent>

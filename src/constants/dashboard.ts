@@ -6,6 +6,9 @@ export const DASHBOARD_ACTIVITY_LIMIT = 12;
 /** Maximum slices in a distribution chart before the remainder is folded into Other. */
 export const DASHBOARD_CHART_LIMIT = 8;
 
+/** Upcoming holidays shown on the operations panel. */
+export const DASHBOARD_HOLIDAY_LIMIT = 4;
+
 /**
  * Sign-in noise would drown the feed. The dashboard is for administrative work:
  * masters, assignments and password administration.

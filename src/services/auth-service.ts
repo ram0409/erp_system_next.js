@@ -211,7 +211,7 @@ export async function signIn(request: SignInRequest): Promise<SignInResult> {
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
-      designation: user.designation,
+      designation: user.designation?.name ?? null,
       avatarUrl: user.avatarPath,
       status: user.status,
       role: {

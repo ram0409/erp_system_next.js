@@ -6,8 +6,27 @@ import { RECORD_STATUS } from "@/constants/status";
 import { getRequestIp } from "@/lib/request";
 import { readSessionCookie } from "@/lib/session-cookie";
 import { verifySessionToken } from "@/lib/session-token";
-import { findActorByPublicId, toPermissionKeys } from "@/repositories/user-repository";
+import { findActorByPublicId, toPermissionKeys, type ActorRow } from "@/repositories/user-repository";
 import type { ActorContext, SessionUser } from "@/types/session";
+
+/**
+ * One database read per request for the signed-in user. Shared by the layout's
+ * actor context and the forced-password-change gate so a menu click does not
+ * wait on the same query twice.
+ */
+const getActorRow = cache(async (): Promise<ActorRow | null> => {
+  const token = await readSessionCookie();
+  if (!token) {
+    return null;
+  }
+
+  const claims = verifySessionToken(token);
+  if (!claims) {
+    return null;
+  }
+
+  return findActorByPublicId(claims.userPublicId);
+});
 
 /**
  * Resolves the actor for the current request.
@@ -32,7 +51,7 @@ export const getActorContext = cache(async (): Promise<ActorContext | null> => {
     return null;
   }
 
-  const actor = await findActorByPublicId(claims.userPublicId);
+  const actor = await getActorRow();
   if (!actor) {
     return null;
   }
@@ -62,7 +81,7 @@ export const getActorContext = cache(async (): Promise<ActorContext | null> => {
     firstName: actor.firstName,
     lastName: actor.lastName,
     email: actor.email,
-    designation: actor.designation,
+    designation: actor.designation?.name ?? null,
     avatarUrl: actor.avatarPath,
     status: actor.status,
     role: {
@@ -94,16 +113,6 @@ export const getActorContext = cache(async (): Promise<ActorContext | null> => {
  * authorization, and only the change-password flow needs it.
  */
 export const requiresPasswordChange = cache(async (): Promise<boolean> => {
-  const token = await readSessionCookie();
-  if (!token) {
-    return false;
-  }
-
-  const claims = verifySessionToken(token);
-  if (!claims) {
-    return false;
-  }
-
-  const actor = await findActorByPublicId(claims.userPublicId);
+  const actor = await getActorRow();
   return actor?.mustChangePassword ?? false;
 });

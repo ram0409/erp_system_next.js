@@ -22,6 +22,10 @@ export const TABLE_QUERY_KEYS = {
   BRANCH: "branch",
   ROLE: "role",
   ACTION: "action",
+  DEPARTMENT: "department",
+  DESIGNATION: "designation",
+  EMPLOYEE: "employee",
+  PROJECT: "project",
 } as const;
 
 /** Hard cap on CSV exports so one request cannot dump the whole table. */

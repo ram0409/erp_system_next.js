@@ -36,14 +36,14 @@ export function SortableColumnHeader({ field, label }: SortableColumnHeaderProps
         })
       }
       aria-label={`Sort by ${label}`}
-      className="group hover:text-foreground focus-visible:ring-ring inline-flex items-center gap-1.5 rounded-sm text-xs font-semibold tracking-wide uppercase transition-colors focus-visible:ring-2 focus-visible:outline-none"
+      className="group hover:text-primary focus-visible:ring-ring inline-flex items-center gap-1.5 rounded-sm text-xs font-semibold tracking-wide uppercase transition-colors focus-visible:ring-2 focus-visible:outline-none"
     >
       {label}
       <Icon
         className={
           isActive
-            ? "text-foreground size-3.5"
-            : "text-muted-foreground/50 group-hover:text-muted-foreground size-3.5"
+            ? "text-primary size-3.5"
+            : "text-foreground/45 group-hover:text-primary size-3.5"
         }
         aria-hidden="true"
       />

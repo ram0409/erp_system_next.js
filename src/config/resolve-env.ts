@@ -79,3 +79,19 @@ export function vercelLocalDatabaseMessage(databaseUrl: string, env: NodeJS.Dict
   }
   return "DATABASE_URL points at localhost, which Vercel cannot reach. Set DATABASE_URL to a hosted PostgreSQL URL (Neon, Supabase, Vercel Postgres, or RDS).";
 }
+
+/**
+ * Neon currently appends `channel_binding=require`. node-postgres on Vercel
+ * cannot complete that handshake, which turns a valid sign-in into INTERNAL_ERROR.
+ * Prisma's historic `schema=` query param is also not a libpq option.
+ */
+export function sanitizeRuntimeDatabaseUrl(connectionString: string): string {
+  try {
+    const parsed = new URL(connectionString);
+    parsed.searchParams.delete("channel_binding");
+    parsed.searchParams.delete("schema");
+    return parsed.toString();
+  } catch {
+    return connectionString;
+  }
+}

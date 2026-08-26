@@ -25,6 +25,8 @@ import { hashPassword } from "@/lib/password";
 import { issuePasswordResetToken } from "@/lib/password-reset-token";
 import * as auditRepository from "@/repositories/audit-repository";
 import * as branchRepository from "@/repositories/branch-repository";
+import * as departmentRepository from "@/repositories/department-repository";
+import * as designationRepository from "@/repositories/designation-repository";
 import * as passwordResetRepository from "@/repositories/password-reset-repository";
 import * as roleRepository from "@/repositories/role-repository";
 import * as userRepository from "@/repositories/user-repository";
@@ -36,6 +38,7 @@ import {
 import type { PaginatedResult, RawSearchParams } from "@/types/pagination";
 import type { ActorContext } from "@/types/session";
 import type {
+  EmployeeOption,
   UserAssignmentOptions,
   UserDetail,
   UserExportResult,
@@ -66,7 +69,8 @@ function toListItem(row: UserListRow | UserDetailRow): UserListItem {
     lastName: row.lastName,
     email: row.email,
     phone: row.phone,
-    designation: row.designation,
+    designation: row.designation?.name ?? null,
+    joinDate: row.joinDate ? row.joinDate.toISOString() : null,
     status: row.status,
     lastLoginAt: row.lastLoginAt ? row.lastLoginAt.toISOString() : null,
     createdAt: row.createdAt.toISOString(),
@@ -81,6 +85,8 @@ function toListItem(row: UserListRow | UserDetailRow): UserListItem {
       code: row.branch.code,
       name: row.branch.name,
     },
+    department: row.department,
+    jobTitle: row.designation,
   };
 }
 
@@ -177,6 +183,50 @@ async function resolveAssignment(
   return { branchId: branch.id, role };
 }
 
+async function resolveOptionalMaster(
+  publicId: string | undefined,
+  kind: "department" | "designation",
+): Promise<number | null> {
+  const trimmed = publicId?.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const row =
+    kind === "department"
+      ? await departmentRepository.findByPublicId(trimmed)
+      : await designationRepository.findByPublicId(trimmed);
+
+  if (!row || row.status !== RECORD_STATUS.ACTIVE) {
+    const message =
+      kind === "department" ? USER_MESSAGES.DEPARTMENT_INACTIVE : USER_MESSAGES.DESIGNATION_INACTIVE;
+    throw new ValidationError(message, {
+      fieldErrors: [
+        {
+          field: kind === "department" ? "departmentPublicId" : "designationPublicId",
+          message,
+        },
+      ],
+    });
+  }
+
+  return row.id;
+}
+
+function parseJoinDate(value: string | undefined): Date | null {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const parsed = new Date(`${trimmed}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new ValidationError(ERROR_MESSAGES.VALIDATION, {
+      fieldErrors: [{ field: "joinDate", message: "Enter a valid join date." }],
+    });
+  }
+  return parsed;
+}
+
 function assertCanAssignRole(actor: ActorContext, role: { readonly isSuperAdmin: boolean }): void {
   if (role.isSuperAdmin && !actor.user.role.isSuperAdmin) {
     throw new ForbiddenError(USER_MESSAGES.SUPER_ADMIN_ASSIGN);
@@ -214,7 +264,10 @@ async function resolveIds(
   };
 }
 
-async function filtersFromSearchParams(searchParams: RawSearchParams) {
+async function filtersFromSearchParams(
+  searchParams: RawSearchParams,
+  options: { readonly excludeSuperAdmin?: boolean } = {},
+) {
   const search = resolveSearchTerm(searchParams);
   const status = resolveAllowedValue(searchParams, TABLE_QUERY_KEYS.STATUS, RECORD_STATUS_VALUES);
   const ids = await resolveIds(
@@ -226,6 +279,7 @@ async function filtersFromSearchParams(searchParams: RawSearchParams) {
     ...(search ? { search } : {}),
     ...(status ? { status } : {}),
     ...ids,
+    ...(options.excludeSuperAdmin ? { excludeSuperAdmin: true } : {}),
   };
 }
 
@@ -235,15 +289,17 @@ async function filtersFromExportInput(filters: ExportUsersInput) {
     ...(filters.search ? { search: filters.search } : {}),
     ...(filters.status ? { status: filters.status } : {}),
     ...ids,
+    ...(filters.excludeSuperAdmin ? { excludeSuperAdmin: true } : {}),
   };
 }
 
 export async function listUsers(
   searchParams: RawSearchParams,
+  options: { readonly excludeSuperAdmin?: boolean } = {},
 ): Promise<PaginatedResult<UserListItem>> {
   const pagination = resolvePagination(searchParams);
   const sort = resolveSort(searchParams, USER_SORT_FIELDS, "createdAt");
-  const filters = await filtersFromSearchParams(searchParams);
+  const filters = await filtersFromSearchParams(searchParams, options);
   const result = await userRepository.list(filters, pagination, sort);
 
   return {
@@ -252,13 +308,19 @@ export async function listUsers(
   };
 }
 
+export function listEmployeeOptions(): Promise<EmployeeOption[]> {
+  return userRepository.listEmployeeOptions();
+}
+
 export async function getAssignmentOptions(): Promise<UserAssignmentOptions> {
-  const [branches, roles, superAdminCount] = await Promise.all([
+  const [branches, roles, departments, designations, superAdminCount] = await Promise.all([
     branchRepository.listOptions(),
     roleRepository.listOptions(),
+    departmentRepository.listOptions(),
+    designationRepository.listOptions(),
     userRepository.countSuperAdmins(),
   ]);
-  return { branches, roles, superAdminCount };
+  return { branches, roles, departments, designations, superAdminCount };
 }
 
 export async function getUser(publicId: string): Promise<UserDetail> {
@@ -285,7 +347,9 @@ export async function createUser(
     email: input.email,
     passwordHash: await hashPassword(input.password),
     phone: emptyToNull(input.phone),
-    designation: emptyToNull(input.designation),
+    joinDate: parseJoinDate(input.joinDate),
+    departmentId: await resolveOptionalMaster(input.departmentPublicId, "department"),
+    designationId: await resolveOptionalMaster(input.designationPublicId, "designation"),
     branchId: assignment.branchId,
     roleId: assignment.role.id,
     status: RECORD_STATUS.ACTIVE,
@@ -349,7 +413,9 @@ export async function updateUser(
     lastName: input.lastName,
     email: input.email,
     phone: emptyToNull(input.phone),
-    designation: emptyToNull(input.designation),
+    joinDate: parseJoinDate(input.joinDate),
+    departmentId: await resolveOptionalMaster(input.departmentPublicId, "department"),
+    designationId: await resolveOptionalMaster(input.designationPublicId, "designation"),
     branchId: assignment.branchId,
     roleId: assignment.role.id,
     incrementTokenVersion: roleChanging,
@@ -520,8 +586,8 @@ export async function exportUsers(filters: ExportUsersInput): Promise<UserExport
       row.lastName,
       row.email,
       row.phone,
-      row.designation,
-      `${row.branch.code} — ${row.branch.name}`,
+      row.designation?.name ?? "",
+      row.branch.name,
       row.role.name,
       RECORD_STATUS_LABELS[row.status],
       row.lastLoginAt ? formatDateTime(row.lastLoginAt) : "",

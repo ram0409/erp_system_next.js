@@ -30,7 +30,10 @@ export function TableHeader({ className, ...props }: React.ComponentProps<"thead
   return (
     <thead
       data-slot="table-header"
-      className={cn("bg-surface-muted/80 [&_tr]:border-border [&_tr]:border-b", className)}
+      className={cn(
+        "bg-primary/8 [&_tr]:border-border [&_tr]:hover:bg-transparent [&_tr]:border-b",
+        className,
+      )}
       {...props}
     />
   );
@@ -64,7 +67,7 @@ export function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "text-muted-foreground h-10 px-4 text-left align-middle text-xs font-semibold tracking-wide whitespace-nowrap uppercase",
+        "bg-primary/8 text-foreground h-11 px-4 text-left align-middle text-xs font-semibold tracking-wide whitespace-nowrap uppercase first:rounded-tl-sm last:rounded-tr-sm",
         className,
       )}
       {...props}

@@ -24,6 +24,13 @@ function isRouteActive(pathname: string, href: string): boolean {
 
 export function NavList({ items, collapsed = false, onNavigate }: NavListProps) {
   const pathname = usePathname();
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const [pendingForPath, setPendingForPath] = useState(pathname);
+
+  if (pendingForPath !== pathname) {
+    setPendingForPath(pathname);
+    setPendingHref(null);
+  }
 
   return (
     <nav aria-label="Main navigation" className="flex flex-col gap-1 px-2">
@@ -33,16 +40,20 @@ export function NavList({ items, collapsed = false, onNavigate }: NavListProps) 
             key={item.href}
             item={item}
             active={isRouteActive(pathname, item.href)}
+            pending={pendingHref === item.href}
             collapsed={collapsed}
             onNavigate={onNavigate}
+            onPending={() => setPendingHref(item.href)}
           />
         ) : (
           <NavGroupItem
             key={item.id}
             group={item}
             pathname={pathname}
+            pendingHref={pendingHref}
             collapsed={collapsed}
             onNavigate={onNavigate}
+            onPending={setPendingHref}
           />
         ),
       )}
@@ -56,28 +67,41 @@ const linkBaseClasses =
 function NavLink({
   item,
   active,
+  pending,
   collapsed,
   onNavigate,
+  onPending,
   nested = false,
 }: {
   item: NavLeaf;
   active: boolean;
+  pending: boolean;
   collapsed: boolean;
   onNavigate?: () => void;
+  onPending: () => void;
   nested?: boolean;
 }) {
   const Icon = NAV_ICONS[item.icon];
+  const highlighted = active || pending;
 
   const link = (
     <Link
       href={item.href}
-      onClick={onNavigate}
+      prefetch
+      onClick={() => {
+        if (!active) {
+          onPending();
+        }
+        onNavigate?.();
+      }}
       aria-current={active ? "page" : undefined}
+      aria-busy={pending && !active ? true : undefined}
       className={cn(
         linkBaseClasses,
-        active
+        highlighted
           ? "brand-fill brand-glow text-white"
           : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+        pending && !active && "opacity-80",
         collapsed && "justify-center px-0",
         nested && !collapsed && "pl-3",
       )}
@@ -102,13 +126,17 @@ function NavLink({
 function NavGroupItem({
   group,
   pathname,
+  pendingHref,
   collapsed,
   onNavigate,
+  onPending,
 }: {
   group: NavGroup;
   pathname: string;
+  pendingHref: string | null;
   collapsed: boolean;
   onNavigate?: () => void;
+  onPending: (href: string) => void;
 }) {
   const hasActiveChild = group.children.some((child) => isRouteActive(pathname, child.href));
   const Icon = NAV_ICONS[group.icon];
@@ -130,8 +158,10 @@ function NavGroupItem({
             key={child.href}
             item={child}
             active={isRouteActive(pathname, child.href)}
+            pending={pendingHref === child.href}
             collapsed
             onNavigate={onNavigate}
+            onPending={() => onPending(child.href)}
           />
         ))}
       </div>
@@ -167,8 +197,10 @@ function NavGroupItem({
               key={child.href}
               item={child}
               active={isRouteActive(pathname, child.href)}
+              pending={pendingHref === child.href}
               collapsed={false}
               onNavigate={onNavigate}
+              onPending={() => onPending(child.href)}
               nested
             />
           ))}

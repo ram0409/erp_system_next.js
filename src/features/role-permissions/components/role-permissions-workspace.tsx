@@ -9,8 +9,9 @@ import { useCan } from "@/components/providers/permissions-provider";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { FilterBar } from "@/components/tables/filter-bar";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
@@ -45,12 +46,10 @@ import { saveRolePermissionsAction } from "@/features/role-permissions/actions";
 import {
   MATRIX_ACTION_COLUMNS,
   catalogKeysForModule,
-  formatActionList,
   grantStateFor,
   keysEqual,
   setAllGranted,
   setModuleGranted,
-  summarizeGrants,
   toggleKey,
   toKeySet,
 } from "@/lib/permission-matrix";
@@ -91,7 +90,6 @@ export function RolePermissionsWorkspace({
 
   const isDirty = !keysEqual(draftKeys, grantedKeys);
   const keySet = useMemo(() => toKeySet(draftKeys), [draftKeys]);
-  const summary = useMemo(() => summarizeGrants(keySet), [keySet]);
   const globalState = grantStateFor(keySet, ALL_PERMISSION_KEYS);
 
   useEffect(() => {
@@ -114,6 +112,7 @@ export function RolePermissionsWorkspace({
         <EmptyState
           title="No roles to configure"
           description="Create a role before granting permissions."
+          className="px-5 pb-5"
         />
       </Card>
     );
@@ -159,40 +158,34 @@ export function RolePermissionsWorkspace({
   return (
     <>
       <Card>
-        <CardHeader className="gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div className="space-y-3">
-            <CardTitle>Permission matrix</CardTitle>
-            <div className="space-y-1.5">
-              <Label htmlFor="role-permission-role">Role</Label>
-              <Select value={selected.publicId} onValueChange={requestRoleChange}>
-                <SelectTrigger id="role-permission-role" className="w-full sm:w-80">
-                  <SelectValue placeholder="Select a role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {roles.map((role) => (
-                    <SelectItem key={role.publicId} value={role.publicId}>
-                      {roleOptionLabel(role, actorRolePublicId)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge status={selected.status} />
-              {selected.isSuperAdmin ? <Badge variant="info">Super Admin</Badge> : null}
-              {selected.isSystem && !selected.isSuperAdmin ? (
-                <Badge variant="neutral">System</Badge>
-              ) : null}
-              {selected.publicId === actorRolePublicId ? (
-                <Badge variant="outline">Your role</Badge>
-              ) : null}
-              <p className="text-muted-foreground text-sm">
-                {draftKeys.length} of {ALL_PERMISSION_KEYS.length} permissions selected
-              </p>
-            </div>
+        <FilterBar>
+          <Select value={selected.publicId} onValueChange={requestRoleChange}>
+            <SelectTrigger id="role-permission-role" aria-label="Role" className="sm:w-80">
+              <SelectValue placeholder="Select a role" />
+            </SelectTrigger>
+            <SelectContent>
+              {roles.map((role) => (
+                <SelectItem key={role.publicId} value={role.publicId}>
+                  {roleOptionLabel(role, actorRolePublicId)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge status={selected.status} />
+            {selected.isSuperAdmin ? <Badge variant="info">Super Admin</Badge> : null}
+            {selected.isSystem && !selected.isSuperAdmin ? (
+              <Badge variant="neutral">System</Badge>
+            ) : null}
+            {selected.publicId === actorRolePublicId ? (
+              <Badge variant="outline">Your role</Badge>
+            ) : null}
+            <p className="text-muted-foreground text-sm">
+              {draftKeys.length} of {ALL_PERMISSION_KEYS.length} permissions selected
+            </p>
           </div>
           {interactive ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 sm:ml-auto">
               <Checkbox
                 id="role-permission-select-all"
                 checked={checkboxState(globalState)}
@@ -204,24 +197,22 @@ export function RolePermissionsWorkspace({
               </Label>
             </div>
           ) : null}
-        </CardHeader>
-        <CardContent className="px-0 py-0">
-          {readOnly ? (
-            <p className="text-muted-foreground border-border border-b px-5 py-3 text-sm">
-              {ROLE_PERMISSION_MESSAGES.SUPER_ADMIN_LOCKED}
-            </p>
-          ) : null}
-          <PermissionMatrixTable
-            draftKeys={keySet}
-            disabled={!interactive || isSubmitting}
-            onToggle={(key, granted) => setDraftKeys((current) => toggleKey(current, key, granted))}
-            onToggleModule={(definition, granted) =>
-              setDraftKeys((current) => setModuleGranted(current, definition, granted))
-            }
-          />
-        </CardContent>
+        </FilterBar>
+        {readOnly ? (
+          <p className="text-muted-foreground px-5 pt-2 text-sm">
+            {ROLE_PERMISSION_MESSAGES.SUPER_ADMIN_LOCKED}
+          </p>
+        ) : null}
+        <PermissionMatrixTable
+          draftKeys={keySet}
+          disabled={!interactive || isSubmitting}
+          onToggle={(key, granted) => setDraftKeys((current) => toggleKey(current, key, granted))}
+          onToggleModule={(definition, granted) =>
+            setDraftKeys((current) => setModuleGranted(current, definition, granted))
+          }
+        />
         {interactive ? (
-          <CardFooter className="justify-end">
+          <div className="flex justify-end px-5 py-4">
             <form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -236,11 +227,11 @@ export function RolePermissionsWorkspace({
                 submitLabel="Save permissions"
               />
             </form>
-          </CardFooter>
-        ) : null}
+          </div>
+        ) : (
+          <div className="pb-4" />
+        )}
       </Card>
-
-      <GrantedSummary summary={summary} />
 
       <ConfirmDialog
         open={pendingRolePublicId !== null}
@@ -283,56 +274,58 @@ function PermissionMatrixTable({
   readonly onToggleModule: (definition: PermissionModuleDefinition, granted: boolean) => void;
 }) {
   return (
-    <TableContainer>
-      <Table>
-        <caption className="sr-only">Module and action permission matrix</caption>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="min-w-48">Module</TableHead>
-            <TableHead className="w-16 text-center">All</TableHead>
-            {MATRIX_ACTION_COLUMNS.map((action) => (
-              <TableHead key={action} className="w-20 text-center">
-                {PERMISSION_ACTION_LABELS[action]}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {PERMISSION_CATALOG.map((definition) => {
-            const moduleKeys = catalogKeysForModule(definition);
-            const moduleState = grantStateFor(draftKeys, moduleKeys);
+    <div className="px-5 pt-4">
+      <TableContainer className="border-border/80 rounded-sm border">
+        <Table>
+          <caption className="sr-only">Module and action permission matrix</caption>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="min-w-48">Module</TableHead>
+              <TableHead className="w-16 text-center">All</TableHead>
+              {MATRIX_ACTION_COLUMNS.map((action) => (
+                <TableHead key={action} className="w-20 text-center">
+                  {PERMISSION_ACTION_LABELS[action]}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {PERMISSION_CATALOG.map((definition) => {
+              const moduleKeys = catalogKeysForModule(definition);
+              const moduleState = grantStateFor(draftKeys, moduleKeys);
 
-            return (
-              <TableRow key={definition.module}>
-                <TableCell>
-                  <p className="font-medium">{definition.label}</p>
-                  <p className="text-muted-foreground text-xs">{definition.description}</p>
-                </TableCell>
-                <TableCell className="text-center">
-                  <MatrixCheckbox
-                    label={`All ${definition.label} permissions`}
-                    checked={checkboxState(moduleState)}
-                    disabled={disabled}
-                    onCheckedChange={(granted) => onToggleModule(definition, granted)}
-                  />
-                </TableCell>
-                {MATRIX_ACTION_COLUMNS.map((action) => (
-                  <TableCell key={action} className="text-center">
-                    <ModuleActionCell
-                      definition={definition}
-                      action={action}
-                      granted={draftKeys.has(buildPermissionKey(definition.module, action))}
+              return (
+                <TableRow key={definition.module}>
+                  <TableCell>
+                    <p className="font-medium">{definition.label}</p>
+                    <p className="text-muted-foreground text-xs">{definition.description}</p>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <MatrixCheckbox
+                      label={`All ${definition.label} permissions`}
+                      checked={checkboxState(moduleState)}
                       disabled={disabled}
-                      onToggle={onToggle}
+                      onCheckedChange={(granted) => onToggleModule(definition, granted)}
                     />
                   </TableCell>
-                ))}
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </TableContainer>
+                  {MATRIX_ACTION_COLUMNS.map((action) => (
+                    <TableCell key={action} className="text-center">
+                      <ModuleActionCell
+                        definition={definition}
+                        action={action}
+                        granted={draftKeys.has(buildPermissionKey(definition.module, action))}
+                        disabled={disabled}
+                        onToggle={onToggle}
+                      />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </div>
   );
 }
 
@@ -383,29 +376,5 @@ function MatrixCheckbox({
       className={cn("mx-auto")}
       onCheckedChange={(value) => onCheckedChange(value === true)}
     />
-  );
-}
-
-function GrantedSummary({ summary }: { readonly summary: ReturnType<typeof summarizeGrants> }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Granted permissions</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {summary.length === 0 ? (
-          <p className="text-muted-foreground text-sm">No permissions selected.</p>
-        ) : (
-          <ul className="space-y-2">
-            {summary.map((entry) => (
-              <li key={entry.label} className="text-sm">
-                <span className="font-medium">{entry.label}</span>
-                <span className="text-muted-foreground"> — {formatActionList(entry.actions)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
   );
 }

@@ -1,7 +1,7 @@
 import type { RecordStatus } from "@/constants/status";
 
 /**
- * Client-safe organisation projection used by General Settings.
+ * Client-safe company projection used by Company Information.
  * Internal numeric ids stay in the repository.
  */
 

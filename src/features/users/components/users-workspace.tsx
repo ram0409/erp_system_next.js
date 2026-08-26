@@ -49,6 +49,7 @@ interface UsersWorkspaceProps {
     readonly status?: UserListItem["status"];
     readonly branchPublicId?: string;
     readonly rolePublicId?: string;
+    readonly excludeSuperAdmin?: boolean;
   };
 }
 
@@ -159,11 +160,6 @@ export function UsersWorkspace({
         cell: (row) => (
           <span className="font-medium">
             {formatFullName(row.firstName, row.lastName)}
-            {row.isSuperAdmin ? (
-              <Badge variant="info" className="ml-2">
-                Super Admin
-              </Badge>
-            ) : null}
             {row.publicId === actorUserPublicId ? (
               <Badge variant="outline" className="ml-2">
                 You
@@ -189,12 +185,19 @@ export function UsersWorkspace({
       {
         id: "branch",
         header: "Branch",
-        cell: (row) => (
-          <span>
-            {row.branch.code}
-            <span className="text-muted-foreground"> · {row.branch.name}</span>
-          </span>
-        ),
+        cell: (row) => row.branch.name,
+        hideBelowMd: true,
+      },
+      {
+        id: "department",
+        header: "Department",
+        cell: (row) => row.department?.name ?? EMPTY_VALUE_PLACEHOLDER,
+        hideBelowMd: true,
+      },
+      {
+        id: "designation",
+        header: "Designation",
+        cell: (row) => row.jobTitle?.name ?? row.designation ?? EMPTY_VALUE_PLACEHOLDER,
         hideBelowMd: true,
       },
       {
@@ -323,7 +326,7 @@ export function UsersWorkspace({
             label="Branch"
             options={options.branches.map((branch) => ({
               value: branch.publicId,
-              label: `${branch.code} · ${branch.name}`,
+              label: branch.name,
             }))}
             allLabel="All branches"
             className="sm:w-52"
@@ -376,6 +379,8 @@ export function UsersWorkspace({
         isLoading={detailPending}
         branches={options.branches}
         roles={options.roles}
+        departments={options.departments}
+        designations={options.designations}
         actorIsSuperAdmin={actorIsSuperAdmin}
         onOpenChange={setFormOpen}
         onSuccess={handleFormSuccess}

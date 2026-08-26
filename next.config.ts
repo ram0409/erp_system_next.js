@@ -19,6 +19,12 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  experimental: {
+    // Menu clicks stay on the previous page until the server finishes. A short
+    // client cache plus full link prefetch makes the next visit feel instant.
+    staleTimes: { dynamic: 30 },
+    transitionIndicator: true,
+  },
   // Native / driver packages must load through Node, not the Turbopack bundle.
   // Missing this is a common cause of INTERNAL_ERROR on the first database write
   // in a Server Action (sign-in records a login_attempts row).
