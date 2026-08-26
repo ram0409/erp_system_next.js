@@ -178,11 +178,10 @@ function toUpdateData(input: UpdateBranchInput): Prisma.BranchUpdateInput {
 }
 
 async function unsetOtherHeadOffices(
-  tx: Prisma.TransactionClient,
   organizationId: number,
   exceptPublicId?: string,
 ): Promise<void> {
-  await tx.branch.updateMany({
+  await prisma.branch.updateMany({
     where: {
       organizationId,
       isHeadOffice: true,
@@ -194,37 +193,33 @@ async function unsetOtherHeadOffices(
 }
 
 export function create(input: CreateBranchInput): Promise<BranchDetailRow> {
-  return withPrismaErrors("branch.create", () =>
-    prisma.$transaction(async (tx) => {
-      if (input.isHeadOffice) {
-        await unsetOtherHeadOffices(tx, input.organizationId);
-      }
+  return withPrismaErrors("branch.create", async () => {
+    if (input.isHeadOffice) {
+      await unsetOtherHeadOffices(input.organizationId);
+    }
 
-      return tx.branch.create({
-        data: toCreateData(input),
-        select: DETAIL_SELECT,
-      });
-    }),
-  );
+    return prisma.branch.create({
+      data: toCreateData(input),
+      select: DETAIL_SELECT,
+    });
+  });
 }
 
 export function update(publicId: string, input: UpdateBranchInput): Promise<BranchDetailRow> {
   return withPrismaErrors("branch.update", async () => {
     const data = toUpdateData(input);
 
-    return prisma.$transaction(async (tx) => {
-      if (input.isHeadOffice) {
-        const current = await tx.branch.findFirst({
-          where: { publicId },
-          select: { organizationId: true },
-        });
-        if (current) {
-          await unsetOtherHeadOffices(tx, current.organizationId, publicId);
-        }
+    if (input.isHeadOffice) {
+      const current = await prisma.branch.findFirst({
+        where: { publicId },
+        select: { organizationId: true },
+      });
+      if (current) {
+        await unsetOtherHeadOffices(current.organizationId, publicId);
       }
+    }
 
-      return tx.branch.update({ where: { publicId }, data, select: DETAIL_SELECT });
-    });
+    return prisma.branch.update({ where: { publicId }, data, select: DETAIL_SELECT });
   });
 }
 

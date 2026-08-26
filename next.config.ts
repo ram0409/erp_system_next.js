@@ -29,6 +29,8 @@ const nextConfig: NextConfig = {
   // Missing this is a common cause of INTERNAL_ERROR on the first database write
   // in a Server Action (sign-in records a login_attempts row).
   serverExternalPackages: [
+    "@prisma/client",
+    "@prisma/client/runtime/client",
     "@prisma/adapter-pg",
     "@prisma/driver-adapter-utils",
     "pg",
