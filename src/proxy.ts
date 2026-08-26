@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { CURRENT_PATH_HEADER, SESSION_COOKIE_NAME } from "@/constants/auth";
-import { shouldSendAnonymousToLogin, loginRedirectLocation } from "@/lib/auth-proxy";
+import {
+  isSoftNavigationRequest,
+  loginRedirectLocation,
+  shouldSendAnonymousToLogin,
+} from "@/lib/auth-proxy";
 import {
   CSP_NONCE_HEADER,
   HTML_CACHE_CONTROL,
@@ -48,8 +52,14 @@ export default function proxy(request: NextRequest) {
   requestHeaders.set(CSP_NONCE_HEADER, nonce);
   requestHeaders.set("Content-Security-Policy", csp);
 
-  if (shouldSendAnonymousToLogin(pathname, hasSessionCookie)) {
-    const location = loginRedirectLocation(request.url, pathname, search);
+  const isSoftNavigation = isSoftNavigationRequest({
+    nextAction: request.headers.get("next-action"),
+    rsc: request.headers.get("rsc"),
+    accept: request.headers.get("accept"),
+  });
+
+  if (shouldSendAnonymousToLogin(pathname, hasSessionCookie, { isSoftNavigation })) {
+    const location = loginRedirectLocation(pathname, search);
     const redirectResponse = NextResponse.redirect(new URL(location, request.url));
     return applyPageSecurity(redirectResponse, nonce);
   }

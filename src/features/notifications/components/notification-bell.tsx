@@ -19,6 +19,7 @@ import {
   markAllNotificationsReadAction,
   markNotificationReadAction,
 } from "@/features/notifications/actions";
+import { isLeavingForLogin, redirectIfSessionEnded, redirectToLogin } from "@/lib/session-client";
 import { cn } from "@/lib/utils";
 import type { NotificationFeed, NotificationItem } from "@/types/notification";
 import { formatDateTime } from "@/utils/format";
@@ -35,11 +36,26 @@ export function NotificationBell() {
     let cancelled = false;
 
     function refresh() {
-      void listMyNotificationsAction({}).then((result) => {
-        if (!cancelled && result.success) {
-          setFeed(result.data);
-        }
-      });
+      if (cancelled || isLeavingForLogin()) {
+        return;
+      }
+
+      void listMyNotificationsAction({})
+        .then((result) => {
+          if (cancelled || redirectIfSessionEnded(result)) {
+            return;
+          }
+          if (result.success) {
+            setFeed(result.data);
+          }
+        })
+        .catch(() => {
+          // The action POST can land on `/login` after expiry and Next then
+          // rejects with "unexpected response" instead of an ActionResult.
+          if (!cancelled) {
+            redirectToLogin();
+          }
+        });
     }
 
     refresh();
@@ -64,6 +80,9 @@ export function NotificationBell() {
   }, []);
 
   function applyFeed(result: Awaited<ReturnType<typeof listMyNotificationsAction>>) {
+    if (redirectIfSessionEnded(result)) {
+      return;
+    }
     if (result.success) {
       setFeed(result.data);
     }
@@ -72,7 +91,11 @@ export function NotificationBell() {
   function handleOpen(nextOpen: boolean) {
     setOpen(nextOpen);
     if (nextOpen) {
-      void listMyNotificationsAction({}).then(applyFeed);
+      void listMyNotificationsAction({})
+        .then(applyFeed)
+        .catch(() => {
+          redirectToLogin();
+        });
     }
   }
 

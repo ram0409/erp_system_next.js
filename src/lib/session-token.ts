@@ -103,13 +103,7 @@ export function createSessionToken(claims: SessionClaims, now: Date = new Date()
   };
 }
 
-/**
- * Returns the claims only for a token with a valid signature that has not
- * expired. Every failure mode returns null: the caller cannot distinguish a
- * forged token from an expired one, and neither should produce an error message
- * that helps someone probe the format.
- */
-export function verifySessionToken(token: string, now: Date = new Date()): SessionClaims | null {
+function readSignedPayload(token: string, now: Date): TokenPayload | null {
   if (!token) {
     return null;
   }
@@ -142,5 +136,26 @@ export function verifySessionToken(token: string, now: Date = new Date()): Sessi
     return null;
   }
 
+  return payload;
+}
+
+/**
+ * Returns the claims only for a token with a valid signature that has not
+ * expired. Every failure mode returns null: the caller cannot distinguish a
+ * forged token from an expired one, and neither should produce an error message
+ * that helps someone probe the format.
+ */
+export function verifySessionToken(token: string, now: Date = new Date()): SessionClaims | null {
+  const payload = readSignedPayload(token, now);
+  if (!payload) {
+    return null;
+  }
+
   return { userPublicId: payload.u, tokenVersion: payload.v };
+}
+
+/** Signed expiry from a live session cookie. Used to log the UI out when the token ends. */
+export function readSessionExpiresAt(token: string, now: Date = new Date()): Date | null {
+  const payload = readSignedPayload(token, now);
+  return payload ? new Date(payload.e) : null;
 }

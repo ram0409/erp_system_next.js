@@ -1,6 +1,5 @@
 import {
   BadgeCheckIcon,
-  BriefcaseIcon,
   Building2Icon,
   HashIcon,
   MailIcon,
@@ -13,7 +12,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProfileIdentityCard } from "@/features/profile/components/profile-identity-card";
 import type { SessionUser } from "@/types/session";
-import { EMPTY_VALUE_PLACEHOLDER, formatFullName } from "@/utils/format";
+import { formatFullName } from "@/utils/format";
 
 interface ProfileWorkspaceProps {
   readonly user: SessionUser;
@@ -21,7 +20,6 @@ interface ProfileWorkspaceProps {
 
 export function ProfileWorkspace({ user }: ProfileWorkspaceProps) {
   const fullName = formatFullName(user.firstName, user.lastName);
-  const designation = user.designation?.trim() || EMPTY_VALUE_PLACEHOLDER;
 
   return (
     <div className="space-y-5">
@@ -37,7 +35,6 @@ export function ProfileWorkspace({ user }: ProfileWorkspaceProps) {
             <ProfileField icon={UserIcon} label="Name" value={fullName} />
             <ProfileField icon={HashIcon} label="Employee code" value={user.employeeCode} />
             <ProfileField icon={MailIcon} label="Email" value={user.email} />
-            <ProfileField icon={BriefcaseIcon} label="Designation" value={designation} />
           </CardContent>
         </Card>
 

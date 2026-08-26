@@ -13,9 +13,6 @@ export const PERMISSION_MODULES = {
   ROLES: "roles",
   ROLE_PERMISSIONS: "role_permissions",
   BRANCHES: "branches",
-  DEPARTMENTS: "departments",
-  DESIGNATIONS: "designations",
-  ORGANIZATION: "organization",
   ENTITIES: "entities",
   SETTINGS: "settings",
   AUDIT_LOGS: "audit_logs",
@@ -35,63 +32,62 @@ export const PERMISSION_ACTIONS = {
 
 export type PermissionAction = (typeof PERMISSION_ACTIONS)[keyof typeof PERMISSION_ACTIONS];
 
+export function buildPermissionKey<M extends PermissionModule, A extends PermissionAction>(
+  module: M,
+  action: A,
+): `${M}${typeof PERMISSION_KEY_SEPARATOR}${A}` {
+  return `${module}${PERMISSION_KEY_SEPARATOR}${action}`;
+}
+
+export function parsePermissionKey(key: string): { module: string; action: string } | null {
+  const [module, action, ...rest] = key.split(PERMISSION_KEY_SEPARATOR);
+  if (!module || !action || rest.length > 0) {
+    return null;
+  }
+  return { module, action };
+}
+
 /** Typed references used by guards and pages: PERMISSIONS.USERS.CREATE */
 export const PERMISSIONS = {
   DASHBOARD: {
-    VIEW: "dashboard:view",
+    VIEW: buildPermissionKey(PERMISSION_MODULES.DASHBOARD, PERMISSION_ACTIONS.VIEW),
   },
   USERS: {
-    VIEW: "users:view",
-    CREATE: "users:create",
-    EDIT: "users:edit",
-    DELETE: "users:delete",
-    EXPORT: "users:export",
+    VIEW: buildPermissionKey(PERMISSION_MODULES.USERS, PERMISSION_ACTIONS.VIEW),
+    CREATE: buildPermissionKey(PERMISSION_MODULES.USERS, PERMISSION_ACTIONS.CREATE),
+    EDIT: buildPermissionKey(PERMISSION_MODULES.USERS, PERMISSION_ACTIONS.EDIT),
+    DELETE: buildPermissionKey(PERMISSION_MODULES.USERS, PERMISSION_ACTIONS.DELETE),
+    EXPORT: buildPermissionKey(PERMISSION_MODULES.USERS, PERMISSION_ACTIONS.EXPORT),
   },
   ROLES: {
-    VIEW: "roles:view",
-    CREATE: "roles:create",
-    EDIT: "roles:edit",
-    DELETE: "roles:delete",
+    VIEW: buildPermissionKey(PERMISSION_MODULES.ROLES, PERMISSION_ACTIONS.VIEW),
+    CREATE: buildPermissionKey(PERMISSION_MODULES.ROLES, PERMISSION_ACTIONS.CREATE),
+    EDIT: buildPermissionKey(PERMISSION_MODULES.ROLES, PERMISSION_ACTIONS.EDIT),
+    DELETE: buildPermissionKey(PERMISSION_MODULES.ROLES, PERMISSION_ACTIONS.DELETE),
   },
   ROLE_PERMISSIONS: {
-    VIEW: "role_permissions:view",
-    EDIT: "role_permissions:edit",
+    VIEW: buildPermissionKey(PERMISSION_MODULES.ROLE_PERMISSIONS, PERMISSION_ACTIONS.VIEW),
+    EDIT: buildPermissionKey(PERMISSION_MODULES.ROLE_PERMISSIONS, PERMISSION_ACTIONS.EDIT),
   },
   BRANCHES: {
-    VIEW: "branches:view",
-    CREATE: "branches:create",
-    EDIT: "branches:edit",
-    DELETE: "branches:delete",
-    EXPORT: "branches:export",
-  },
-  DEPARTMENTS: {
-    VIEW: "departments:view",
-    CREATE: "departments:create",
-    EDIT: "departments:edit",
-    DELETE: "departments:delete",
-  },
-  DESIGNATIONS: {
-    VIEW: "designations:view",
-    CREATE: "designations:create",
-    EDIT: "designations:edit",
-    DELETE: "designations:delete",
-  },
-  ORGANIZATION: {
-    VIEW: "organization:view",
-    EDIT: "organization:edit",
+    VIEW: buildPermissionKey(PERMISSION_MODULES.BRANCHES, PERMISSION_ACTIONS.VIEW),
+    CREATE: buildPermissionKey(PERMISSION_MODULES.BRANCHES, PERMISSION_ACTIONS.CREATE),
+    EDIT: buildPermissionKey(PERMISSION_MODULES.BRANCHES, PERMISSION_ACTIONS.EDIT),
+    DELETE: buildPermissionKey(PERMISSION_MODULES.BRANCHES, PERMISSION_ACTIONS.DELETE),
+    EXPORT: buildPermissionKey(PERMISSION_MODULES.BRANCHES, PERMISSION_ACTIONS.EXPORT),
   },
   ENTITIES: {
-    VIEW: "entities:view",
-    CREATE: "entities:create",
-    EDIT: "entities:edit",
-    DELETE: "entities:delete",
+    VIEW: buildPermissionKey(PERMISSION_MODULES.ENTITIES, PERMISSION_ACTIONS.VIEW),
+    CREATE: buildPermissionKey(PERMISSION_MODULES.ENTITIES, PERMISSION_ACTIONS.CREATE),
+    EDIT: buildPermissionKey(PERMISSION_MODULES.ENTITIES, PERMISSION_ACTIONS.EDIT),
+    DELETE: buildPermissionKey(PERMISSION_MODULES.ENTITIES, PERMISSION_ACTIONS.DELETE),
   },
   SETTINGS: {
-    VIEW: "settings:view",
-    EDIT: "settings:edit",
+    VIEW: buildPermissionKey(PERMISSION_MODULES.SETTINGS, PERMISSION_ACTIONS.VIEW),
+    EDIT: buildPermissionKey(PERMISSION_MODULES.SETTINGS, PERMISSION_ACTIONS.EDIT),
   },
   AUDIT_LOGS: {
-    VIEW: "audit_logs:view",
+    VIEW: buildPermissionKey(PERMISSION_MODULES.AUDIT_LOGS, PERMISSION_ACTIONS.VIEW),
   },
 } as const;
 
@@ -112,12 +108,16 @@ export interface PermissionModuleDefinition {
   readonly actions: readonly PermissionAction[];
 }
 
-const CRUD_ACTIONS = [
-  PERMISSION_ACTIONS.VIEW,
-  PERMISSION_ACTIONS.CREATE,
-  PERMISSION_ACTIONS.EDIT,
-  PERMISSION_ACTIONS.DELETE,
-] as const;
+function actionsFromGroup(group: Record<string, string>): readonly PermissionAction[] {
+  const allowed = new Set<string>(Object.values(PERMISSION_ACTIONS));
+  return Object.values(group).map((key) => {
+    const parsed = parsePermissionKey(key);
+    if (!parsed || !allowed.has(parsed.action)) {
+      throw new Error(`PERMISSIONS contains an invalid key "${key}".`);
+    }
+    return parsed.action as PermissionAction;
+  });
+}
 
 export const PERMISSION_CATALOG: readonly PermissionModuleDefinition[] = [
   {
@@ -125,89 +125,56 @@ export const PERMISSION_CATALOG: readonly PermissionModuleDefinition[] = [
     label: "Dashboard",
     description: "Access the dashboard and its summary metrics",
     order: 1,
-    actions: [PERMISSION_ACTIONS.VIEW],
+    actions: actionsFromGroup(PERMISSIONS.DASHBOARD),
   },
   {
     module: PERMISSION_MODULES.USERS,
     label: "Users",
     description: "Manage user accounts, their branch and role assignments",
     order: 2,
-    actions: [
-      PERMISSION_ACTIONS.VIEW,
-      PERMISSION_ACTIONS.CREATE,
-      PERMISSION_ACTIONS.EDIT,
-      PERMISSION_ACTIONS.DELETE,
-      PERMISSION_ACTIONS.EXPORT,
-    ],
+    actions: actionsFromGroup(PERMISSIONS.USERS),
   },
   {
     module: PERMISSION_MODULES.ROLES,
     label: "Roles",
     description: "Manage the role master",
     order: 3,
-    actions: CRUD_ACTIONS,
+    actions: actionsFromGroup(PERMISSIONS.ROLES),
   },
   {
     module: PERMISSION_MODULES.ROLE_PERMISSIONS,
     label: "Role Permissions",
     description: "Grant or revoke module permissions for a role",
     order: 4,
-    actions: [PERMISSION_ACTIONS.VIEW, PERMISSION_ACTIONS.EDIT],
+    actions: actionsFromGroup(PERMISSIONS.ROLE_PERMISSIONS),
   },
   {
     module: PERMISSION_MODULES.BRANCHES,
     label: "Branches",
     description: "Manage branch records and their operating status",
     order: 5,
-    actions: [
-      PERMISSION_ACTIONS.VIEW,
-      PERMISSION_ACTIONS.CREATE,
-      PERMISSION_ACTIONS.EDIT,
-      PERMISSION_ACTIONS.DELETE,
-      PERMISSION_ACTIONS.EXPORT,
-    ],
-  },
-  {
-    module: PERMISSION_MODULES.DEPARTMENTS,
-    label: "Departments",
-    description: "Manage the department master",
-    order: 6,
-    actions: CRUD_ACTIONS,
-  },
-  {
-    module: PERMISSION_MODULES.DESIGNATIONS,
-    label: "Designations",
-    description: "Manage the designation master",
-    order: 7,
-    actions: CRUD_ACTIONS,
-  },
-  {
-    module: PERMISSION_MODULES.ORGANIZATION,
-    label: "Organization",
-    description: "View and update organisation identity",
-    order: 8,
-    actions: [PERMISSION_ACTIONS.VIEW, PERMISSION_ACTIONS.EDIT],
+    actions: actionsFromGroup(PERMISSIONS.BRANCHES),
   },
   {
     module: PERMISSION_MODULES.ENTITIES,
     label: "Entity",
     description: "Manage legal entities",
-    order: 9,
-    actions: CRUD_ACTIONS,
+    order: 6,
+    actions: actionsFromGroup(PERMISSIONS.ENTITIES),
   },
   {
     module: PERMISSION_MODULES.SETTINGS,
     label: "Settings",
     description: "View and update company information",
-    order: 10,
-    actions: [PERMISSION_ACTIONS.VIEW, PERMISSION_ACTIONS.EDIT],
+    order: 7,
+    actions: actionsFromGroup(PERMISSIONS.SETTINGS),
   },
   {
     module: PERMISSION_MODULES.AUDIT_LOGS,
     label: "Audit Logs",
     description: "Review the audit trail of administrative activity",
-    order: 11,
-    actions: [PERMISSION_ACTIONS.VIEW],
+    order: 8,
+    actions: actionsFromGroup(PERMISSIONS.AUDIT_LOGS),
   },
 ];
 
@@ -221,18 +188,6 @@ export const PERMISSION_ACTION_LABELS: Readonly<Record<PermissionAction, string>
   print: "Print",
 };
 
-export function buildPermissionKey(module: PermissionModule, action: PermissionAction): string {
-  return `${module}${PERMISSION_KEY_SEPARATOR}${action}`;
-}
-
-export function parsePermissionKey(key: string): { module: string; action: string } | null {
-  const [module, action, ...rest] = key.split(PERMISSION_KEY_SEPARATOR);
-  if (!module || !action || rest.length > 0) {
-    return null;
-  }
-  return { module, action };
-}
-
 /** Flattened catalog used by the database seed. */
 export const ALL_PERMISSION_KEYS: readonly string[] = PERMISSION_CATALOG.flatMap((definition) =>
   definition.actions.map((action) => buildPermissionKey(definition.module, action)),
@@ -244,3 +199,30 @@ const PERMISSION_KEY_SET: ReadonlySet<string> = new Set(ALL_PERMISSION_KEYS);
 export function isPermissionKey(value: string): value is PermissionKey {
   return PERMISSION_KEY_SET.has(value);
 }
+
+/**
+ * Guards reference `PERMISSIONS.*` while the matrix and seed render
+ * `PERMISSION_CATALOG`. A missing catalog row would mean a typed key no role
+ * can be granted — fail at import, not in production.
+ */
+function typedPermissionKeys(): readonly string[] {
+  return Object.values(PERMISSIONS).flatMap((group) => Object.values(group));
+}
+
+function assertCatalogMatchesTypedPermissions(): void {
+  const typed = new Set(typedPermissionKeys());
+
+  for (const key of typed) {
+    if (!PERMISSION_KEY_SET.has(key)) {
+      throw new Error(`PERMISSIONS includes "${key}" but PERMISSION_CATALOG does not.`);
+    }
+  }
+
+  for (const key of ALL_PERMISSION_KEYS) {
+    if (!typed.has(key)) {
+      throw new Error(`PERMISSION_CATALOG includes "${key}" but PERMISSIONS does not.`);
+    }
+  }
+}
+
+assertCatalogMatchesTypedPermissions();

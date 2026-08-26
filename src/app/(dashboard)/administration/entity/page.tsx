@@ -6,20 +6,19 @@ import { PageHeader } from "@/components/shared/page-header";
 import { PERMISSIONS } from "@/constants/permissions";
 import { TABLE_QUERY_KEYS } from "@/constants/pagination";
 import { RECORD_STATUS_VALUES } from "@/constants/status";
-import { DepartmentsWorkspace } from "@/features/departments/components/departments-workspace";
+import { EntitiesWorkspace } from "@/features/entity/components/entities-workspace";
 import { requirePageAccess } from "@/lib/page-guard";
 import { resolveAllowedValue, resolveSearchTerm } from "@/lib/pagination";
-import { listDepartments } from "@/services/department-service";
-import { getAssignmentOptions } from "@/services/user-service";
+import { listEntities } from "@/services/entity-service";
 
-export const metadata: Metadata = { title: "Departments" };
+export const metadata: Metadata = { title: "Entity" };
 
-export default async function DepartmentsPage({
+export default async function EntityPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const access = await requirePageAccess(PERMISSIONS.DEPARTMENTS.VIEW);
+  const access = await requirePageAccess(PERMISSIONS.ENTITIES.VIEW);
 
   if (!access.allowed) {
     return (
@@ -30,21 +29,20 @@ export default async function DepartmentsPage({
   }
 
   const params = await searchParams;
-  const [result, options] = await Promise.all([listDepartments(params), getAssignmentOptions()]);
+  const result = await listEntities(params);
   const search = resolveSearchTerm(params);
   const status = resolveAllowedValue(params, TABLE_QUERY_KEYS.STATUS, RECORD_STATUS_VALUES);
 
   return (
     <PageContainer>
       <PageHeader
-        title="Departments"
-        description="Maintain the department master used on employee records."
+        title="Entity"
+        description="Maintain legal entities and their registration details."
       />
-      <DepartmentsWorkspace
+      <EntitiesWorkspace
         items={result.items}
         meta={result.meta}
         isFiltered={Boolean(search || status)}
-        branches={options.branches}
       />
     </PageContainer>
   );

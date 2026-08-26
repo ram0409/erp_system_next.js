@@ -12,10 +12,8 @@ export const ROUTES = {
   ROLES: "/administration/roles",
   ROLE_PERMISSIONS: "/administration/role-permissions",
   BRANCHES: "/administration/branches",
-
-  ENTITY: "/entity",
-  DEPARTMENTS: "/administration/departments",
-  DESIGNATIONS: "/administration/designations",
+  ENTITY: "/administration/entity",
+  /** Compatibility redirect to Company Information. Not a sidebar item. */
   ORGANIZATION: "/administration/organization",
 
   SETTINGS: "/settings",
@@ -50,8 +48,6 @@ export const SEGMENT_LABELS: Readonly<Record<string, string>> = {
   "role-permissions": "Role Permissions",
   branches: "Branches",
   entity: "Entity",
-  departments: "Departments",
-  designations: "Designations",
   organization: "Organization",
   settings: "Settings",
   general: "Company Information",

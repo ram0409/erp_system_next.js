@@ -13,16 +13,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { updateOrganizationSettingsAction } from "@/features/settings/actions";
-import type { ActionResult } from "@/types/api";
 import type { OrganizationSettings } from "@/types/settings";
 import {
   updateOrganizationSettingsSchema,
   type UpdateOrganizationSettingsInput,
 } from "@/validations/settings";
-
-type SaveOrganizationAction = (
-  values: UpdateOrganizationSettingsInput,
-) => Promise<ActionResult<OrganizationSettings>>;
 
 function valuesFromSettings(settings: OrganizationSettings): UpdateOrganizationSettingsInput {
   return {
@@ -43,14 +38,9 @@ function valuesFromSettings(settings: OrganizationSettings): UpdateOrganizationS
 interface GeneralSettingsFormProps {
   readonly settings: OrganizationSettings;
   readonly canEdit: boolean;
-  readonly saveAction?: SaveOrganizationAction;
 }
 
-export function GeneralSettingsForm({
-  settings,
-  canEdit,
-  saveAction = updateOrganizationSettingsAction,
-}: GeneralSettingsFormProps) {
+export function GeneralSettingsForm({ settings, canEdit }: GeneralSettingsFormProps) {
   const router = useRouter();
   const [formError, setFormError] = useState<string | null>(null);
   const formValues = useMemo(() => valuesFromSettings(settings), [settings]);
@@ -71,7 +61,7 @@ export function GeneralSettingsForm({
     }
     setFormError(null);
 
-    const result = await saveAction(values);
+    const result = await updateOrganizationSettingsAction(values);
 
     if (!result.success) {
       if (result.errors.length > 0) {

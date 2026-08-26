@@ -8,7 +8,6 @@ export interface SessionUser {
   readonly firstName: string;
   readonly lastName: string;
   readonly email: string;
-  readonly designation: string | null;
   readonly avatarUrl: string | null;
   readonly status: RecordStatus;
   readonly role: {

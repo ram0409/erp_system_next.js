@@ -14,10 +14,13 @@ export const RECORD_STATUS_LABELS: Readonly<Record<RecordStatus, string>> = {
   INACTIVE: "Inactive",
 };
 
-export const RECORD_STATUS_OPTIONS: readonly { value: RecordStatus; label: string }[] = [
-  { value: RECORD_STATUS.ACTIVE, label: RECORD_STATUS_LABELS.ACTIVE },
-  { value: RECORD_STATUS.INACTIVE, label: RECORD_STATUS_LABELS.INACTIVE },
-];
+export const RECORD_STATUS_VALUES = [
+  RECORD_STATUS.ACTIVE,
+  RECORD_STATUS.INACTIVE,
+] as const satisfies readonly RecordStatus[];
+
+export const RECORD_STATUS_OPTIONS: readonly { value: RecordStatus; label: string }[] =
+  RECORD_STATUS_VALUES.map((value) => ({ value, label: RECORD_STATUS_LABELS[value] }));
 
 /**
  * Seeded role slugs. Slugs are stable identifiers for code and seeds; the
@@ -61,11 +64,6 @@ export const BRANCH_TYPE_VALUES = [
 
 export const BRANCH_TYPE_OPTIONS: readonly { value: BranchType; label: string }[] =
   BRANCH_TYPE_VALUES.map((value) => ({ value, label: BRANCH_TYPE_LABELS[value] }));
-
-export const RECORD_STATUS_VALUES = [
-  RECORD_STATUS.ACTIVE,
-  RECORD_STATUS.INACTIVE,
-] as const satisfies readonly RecordStatus[];
 
 export const AUDIT_ACTIONS = {
   CREATE: "CREATE",

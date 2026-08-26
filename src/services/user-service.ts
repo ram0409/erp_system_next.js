@@ -26,8 +26,6 @@ import { issuePasswordResetToken } from "@/lib/password-reset-token";
 import { getWorkspaceScope } from "@/lib/workspace-scope";
 import * as auditRepository from "@/repositories/audit-repository";
 import * as branchRepository from "@/repositories/branch-repository";
-import * as departmentRepository from "@/repositories/department-repository";
-import * as designationRepository from "@/repositories/designation-repository";
 import * as passwordResetRepository from "@/repositories/password-reset-repository";
 import * as roleRepository from "@/repositories/role-repository";
 import * as userRepository from "@/repositories/user-repository";
@@ -69,7 +67,6 @@ function toListItem(row: UserListRow | UserDetailRow): UserListItem {
     lastName: row.lastName,
     email: row.email,
     phone: row.phone,
-    designation: row.designation?.name ?? null,
     joinDate: row.joinDate ? row.joinDate.toISOString() : null,
     status: row.status,
     lastLoginAt: row.lastLoginAt ? row.lastLoginAt.toISOString() : null,
@@ -85,8 +82,6 @@ function toListItem(row: UserListRow | UserDetailRow): UserListItem {
       code: row.branch.code,
       name: row.branch.name,
     },
-    department: row.department,
-    jobTitle: row.designation,
   };
 }
 
@@ -181,36 +176,6 @@ async function resolveAssignment(
   }
 
   return { branchId: branch.id, role };
-}
-
-async function resolveOptionalMaster(
-  publicId: string | undefined,
-  kind: "department" | "designation",
-): Promise<number | null> {
-  const trimmed = publicId?.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  const row =
-    kind === "department"
-      ? await departmentRepository.findByPublicId(trimmed)
-      : await designationRepository.findByPublicId(trimmed);
-
-  if (!row || row.status !== RECORD_STATUS.ACTIVE) {
-    const message =
-      kind === "department" ? USER_MESSAGES.DEPARTMENT_INACTIVE : USER_MESSAGES.DESIGNATION_INACTIVE;
-    throw new ValidationError(message, {
-      fieldErrors: [
-        {
-          field: kind === "department" ? "departmentPublicId" : "designationPublicId",
-          message,
-        },
-      ],
-    });
-  }
-
-  return row.id;
 }
 
 function parseJoinDate(value: string | undefined): Date | null {
@@ -320,14 +285,12 @@ export async function listUsers(
 
 export async function getAssignmentOptions(): Promise<UserAssignmentOptions> {
   const scope = await getWorkspaceScope();
-  const [branches, roles, departments, designations, superAdminCount] = await Promise.all([
+  const [branches, roles, superAdminCount] = await Promise.all([
     branchRepository.listOptions(scope?.entityId),
     roleRepository.listOptions(),
-    departmentRepository.listOptions(scope?.branchId),
-    designationRepository.listOptions(),
     userRepository.countSuperAdmins(),
   ]);
-  return { branches, roles, departments, designations, superAdminCount };
+  return { branches, roles, superAdminCount };
 }
 
 export async function getUser(publicId: string): Promise<UserDetail> {
@@ -355,8 +318,6 @@ export async function createUser(
     passwordHash: await hashPassword(input.password),
     phone: emptyToNull(input.phone),
     joinDate: parseJoinDate(input.joinDate),
-    departmentId: await resolveOptionalMaster(input.departmentPublicId, "department"),
-    designationId: await resolveOptionalMaster(input.designationPublicId, "designation"),
     branchId: assignment.branchId,
     roleId: assignment.role.id,
     status: RECORD_STATUS.ACTIVE,
@@ -421,8 +382,6 @@ export async function updateUser(
     email: input.email,
     phone: emptyToNull(input.phone),
     joinDate: parseJoinDate(input.joinDate),
-    departmentId: await resolveOptionalMaster(input.departmentPublicId, "department"),
-    designationId: await resolveOptionalMaster(input.designationPublicId, "designation"),
     branchId: assignment.branchId,
     roleId: assignment.role.id,
     incrementTokenVersion: roleChanging,
@@ -580,7 +539,6 @@ export async function exportUsers(filters: ExportUsersInput): Promise<UserExport
       "Last name",
       "Email",
       "Phone",
-      "Designation",
       "Branch",
       "Role",
       "Status",
@@ -593,7 +551,6 @@ export async function exportUsers(filters: ExportUsersInput): Promise<UserExport
       row.lastName,
       row.email,
       row.phone,
-      row.designation?.name ?? "",
       row.branch.name,
       row.role.name,
       RECORD_STATUS_LABELS[row.status],

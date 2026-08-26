@@ -18,6 +18,8 @@ async function auditMeta() {
 function revalidateEntities(): void {
   revalidatePath(ROUTES.ENTITY);
   revalidatePath(ROUTES.BRANCHES);
+  revalidatePath(ROUTES.DASHBOARD);
+  revalidatePath("/", "layout");
 }
 
 export const getEntityAction = defineAction({
