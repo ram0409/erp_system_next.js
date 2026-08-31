@@ -125,7 +125,7 @@ function NavLink({
       ) : null}
       <span
         className={cn(
-          "flex size-7 shrink-0 items-center justify-center rounded-md transition-[background-color,color,transform] duration-200",
+          "flex size-7 shrink-0 items-center justify-center rounded-lg transition-[background-color,color,transform] duration-200",
           highlighted
             ? "bg-sidebar-active/30 text-sidebar-active-foreground"
             : "text-sidebar-muted-foreground group-hover:bg-sidebar-accent group-hover:text-sidebar-accent-foreground",

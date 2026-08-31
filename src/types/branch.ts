@@ -15,14 +15,10 @@ export interface BranchListItem {
   readonly phone: string | null;
   readonly city: string | null;
   readonly state: string | null;
+  readonly logoUrl: string | null;
   readonly status: RecordStatus;
   readonly createdAt: string;
   readonly userCount: number;
-  readonly entity: {
-    readonly publicId: string;
-    readonly code: string;
-    readonly name: string;
-  };
 }
 
 export interface BranchDetail extends BranchListItem {

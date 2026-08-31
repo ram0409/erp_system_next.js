@@ -48,7 +48,7 @@ export function Breadcrumbs() {
         <li className="flex items-center gap-1.5">
           <Link
             href={ROUTES.DASHBOARD}
-            className="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            className="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-sm text-[13px] transition-colors focus-visible:ring-2 focus-visible:outline-none"
           >
             Home
           </Link>
@@ -64,7 +64,7 @@ export function Breadcrumbs() {
               <>
                 <Link
                   href={crumb.href}
-                  className="text-muted-foreground hover:text-foreground focus-visible:ring-ring truncate rounded-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                  className="text-muted-foreground hover:text-foreground focus-visible:ring-ring truncate rounded-sm text-[13px] transition-colors focus-visible:ring-2 focus-visible:outline-none"
                 >
                   {crumb.label}
                 </Link>

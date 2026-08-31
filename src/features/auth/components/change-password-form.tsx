@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -10,19 +10,26 @@ import { FormField } from "@/components/forms/form-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { PASSWORD_RULES } from "@/constants/auth";
+import {
+  getPasswordPolicyRules,
+  passwordPolicyHint,
+  type PasswordPolicyId,
+} from "@/constants/password-policy";
 import { changePasswordAction } from "@/features/auth/actions";
-import { changePasswordSchema, type ChangePasswordInput } from "@/validations/auth";
+import { createChangePasswordSchema, type ChangePasswordInput } from "@/validations/auth";
 
 interface ChangePasswordFormProps {
   /** True when the account was created with a generated password. */
   forced?: boolean;
+  readonly policy: PasswordPolicyId;
 }
 
-export function ChangePasswordForm({ forced = false }: ChangePasswordFormProps) {
+export function ChangePasswordForm({ forced = false, policy }: ChangePasswordFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [formError, setFormError] = useState<string | null>(null);
+  const schema = useMemo(() => createChangePasswordSchema(policy), [policy]);
+  const hint = passwordPolicyHint(getPasswordPolicyRules(policy));
 
   const {
     register,
@@ -31,7 +38,7 @@ export function ChangePasswordForm({ forced = false }: ChangePasswordFormProps) 
     reset,
     formState: { errors },
   } = useForm<ChangePasswordInput>({
-    resolver: zodResolver(changePasswordSchema),
+    resolver: zodResolver(schema),
     defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
   });
 
@@ -110,7 +117,7 @@ export function ChangePasswordForm({ forced = false }: ChangePasswordFormProps) 
         label="New password"
         required
         error={errors.newPassword?.message}
-        hint={`At least ${PASSWORD_RULES.MIN_LENGTH} characters, with an uppercase letter, a lowercase letter, a number and a symbol.`}
+        hint={hint}
       >
         <Input
           id="newPassword"

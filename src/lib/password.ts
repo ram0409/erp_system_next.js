@@ -1,6 +1,15 @@
 import { hash, verify } from "@node-rs/argon2";
+import { randomInt } from "node:crypto";
 
-import { PASSWORD_RULES } from "@/constants/auth";
+import {
+  DEFAULT_PASSWORD_POLICY,
+  findPasswordPolicyViolation,
+  getPasswordPolicyRules,
+  PASSWORD_MAX_LENGTH,
+  type PasswordPolicyId,
+  type PasswordPolicyRules,
+} from "@/constants/password-policy";
+import { ValidationError } from "@/lib/errors";
 
 /**
  * Password hashing with Argon2id.
@@ -28,12 +37,12 @@ const HASH_OPTIONS = {
 const CURRENT_PREFIX = `$argon2id$v=19$m=${HASH_OPTIONS.memoryCost},t=${HASH_OPTIONS.timeCost},p=${HASH_OPTIONS.parallelism}$`;
 
 export async function hashPassword(plainPassword: string): Promise<string> {
-  if (plainPassword.length < PASSWORD_RULES.MIN_LENGTH) {
-    throw new Error("Password is shorter than the configured minimum.");
+  if (plainPassword.length < 1) {
+    throw new Error("Password is empty.");
   }
   // Argon2 has no practical input limit, but an unbounded input is a cheap way to
   // burn server CPU, so the policy maximum is enforced before hashing.
-  if (plainPassword.length > PASSWORD_RULES.MAX_LENGTH) {
+  if (plainPassword.length > PASSWORD_MAX_LENGTH) {
     throw new Error("Password is longer than the configured maximum.");
   }
 
@@ -62,4 +71,88 @@ export async function verifyPassword(storedHash: string, plainPassword: string):
 /** True when a stored hash predates the current parameters and should be rewritten. */
 export function needsRehash(storedHash: string): boolean {
   return !storedHash.startsWith(CURRENT_PREFIX);
+}
+
+export function assertPasswordMeetsPolicy(
+  password: string,
+  policy: PasswordPolicyId,
+  field = "newPassword",
+): void {
+  const message = findPasswordPolicyViolation(password, getPasswordPolicyRules(policy));
+  if (message) {
+    throw new ValidationError(message, {
+      fieldErrors: [{ field, message }],
+    });
+  }
+}
+
+const UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+const LOWER = "abcdefghijkmnopqrstuvwxyz";
+const DIGITS = "23456789";
+const SYMBOLS = "!@#$%&*?";
+
+function pick(alphabet: string): string {
+  return alphabet[randomInt(alphabet.length)] ?? alphabet[0] ?? "A";
+}
+
+function shuffle(chars: string[]): string[] {
+  for (let index = chars.length - 1; index > 0; index -= 1) {
+    const swap = randomInt(index + 1);
+    const current = chars[index];
+    const other = chars[swap];
+    if (current === undefined || other === undefined) {
+      continue;
+    }
+    chars[index] = other;
+    chars[swap] = current;
+  }
+  return chars;
+}
+
+function fillAlphabet(rules: PasswordPolicyRules): string {
+  const parts: string[] = [];
+  if (rules.requireUppercase) {
+    parts.push(UPPER);
+  }
+  if (rules.requireLowercase) {
+    parts.push(LOWER);
+  }
+  if (rules.requireNumber) {
+    parts.push(DIGITS);
+  }
+  if (rules.requireSymbol) {
+    parts.push(SYMBOLS);
+  }
+  return parts.length > 0 ? parts.join("") : `${UPPER}${LOWER}${DIGITS}`;
+}
+
+/**
+ * One-time password for a newly created account. Meets the organisation policy
+ * so the first sign-in is accepted, then `mustChangePassword` forces a replacement.
+ */
+export function generateTemporaryPassword(
+  policy: PasswordPolicyId = DEFAULT_PASSWORD_POLICY,
+): string {
+  const rules = getPasswordPolicyRules(policy);
+  const chars: string[] = [];
+
+  if (rules.requireUppercase) {
+    chars.push(pick(UPPER));
+  }
+  if (rules.requireLowercase) {
+    chars.push(pick(LOWER));
+  }
+  if (rules.requireNumber) {
+    chars.push(pick(DIGITS));
+  }
+  if (rules.requireSymbol) {
+    chars.push(pick(SYMBOLS));
+  }
+
+  const alphabet = fillAlphabet(rules);
+  while (chars.length < rules.minLength) {
+    chars.push(pick(alphabet));
+  }
+
+  return shuffle(chars).join("");
 }

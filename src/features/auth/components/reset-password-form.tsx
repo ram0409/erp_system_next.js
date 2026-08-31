@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -10,18 +10,25 @@ import { FormField } from "@/components/forms/form-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import { PASSWORD_RULES } from "@/constants/auth";
+import {
+  getPasswordPolicyRules,
+  passwordPolicyHint,
+  type PasswordPolicyId,
+} from "@/constants/password-policy";
 import { resetPasswordAction } from "@/features/auth/actions";
-import { resetPasswordSchema, type ResetPasswordInput } from "@/validations/auth";
+import { createResetPasswordSchema, type ResetPasswordInput } from "@/validations/auth";
 
 interface ResetPasswordFormProps {
   token: string;
+  readonly policy: PasswordPolicyId;
 }
 
-export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
+export function ResetPasswordForm({ token, policy }: ResetPasswordFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [formError, setFormError] = useState<string | null>(null);
+  const schema = useMemo(() => createResetPasswordSchema(policy), [policy]);
+  const hint = passwordPolicyHint(getPasswordPolicyRules(policy));
 
   const {
     register,
@@ -29,7 +36,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
     setError,
     formState: { errors },
   } = useForm<ResetPasswordInput>({
-    resolver: zodResolver(resetPasswordSchema),
+    resolver: zodResolver(schema),
     defaultValues: { token, newPassword: "", confirmPassword: "" },
   });
 
@@ -84,7 +91,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
         label="New password"
         required
         error={errors.newPassword?.message}
-        hint={`At least ${PASSWORD_RULES.MIN_LENGTH} characters, with an uppercase letter, a lowercase letter, a number and a symbol.`}
+        hint={hint}
       >
         <Input
           id="newPassword"

@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import { PASSWORD_RULES } from "@/constants/auth";
+import {
+  findPasswordPolicyViolation,
+  getPasswordPolicyRules,
+  PASSWORD_MAX_LENGTH,
+  type PasswordPolicyId,
+} from "@/constants/password-policy";
 
 /**
  * Shared by the browser form and the server action. One schema means the client
@@ -45,65 +50,86 @@ export const signInSchema = z.object({
   password: z
     .string()
     .min(1, "Password is required")
-    .max(PASSWORD_RULES.MAX_LENGTH, "Password is too long"),
+    .max(PASSWORD_MAX_LENGTH, "Password is too long"),
 });
 
 export type SignInInput = z.infer<typeof signInSchema>;
 
-/** Complexity is enforced wherever a password is *set*, not where it is checked. */
-export const passwordSchema = z
+/**
+ * Length ceiling only. Complexity is applied in the service from the
+ * organisation's chosen password policy, so a policy change does not require a
+ * schema change here.
+ */
+export const passwordCandidateSchema = z
   .string()
-  .min(
-    PASSWORD_RULES.MIN_LENGTH,
-    `Password must be at least ${PASSWORD_RULES.MIN_LENGTH} characters`,
-  )
-  .max(PASSWORD_RULES.MAX_LENGTH, `Password must be at most ${PASSWORD_RULES.MAX_LENGTH} characters`)
-  .refine(
-    (value) => !PASSWORD_RULES.REQUIRE_UPPERCASE || /[A-Z]/.test(value),
-    "Password must contain an uppercase letter",
-  )
-  .refine(
-    (value) => !PASSWORD_RULES.REQUIRE_LOWERCASE || /[a-z]/.test(value),
-    "Password must contain a lowercase letter",
-  )
-  .refine(
-    (value) => !PASSWORD_RULES.REQUIRE_NUMBER || /[0-9]/.test(value),
-    "Password must contain a number",
-  )
-  .refine(
-    (value) => !PASSWORD_RULES.REQUIRE_SYMBOL || /[^A-Za-z0-9]/.test(value),
-    "Password must contain a symbol",
-  );
+  .min(1, "Password is required")
+  .max(PASSWORD_MAX_LENGTH, `Password must be at most ${PASSWORD_MAX_LENGTH} characters`);
 
-export const changePasswordSchema = z
-  .object({
-    currentPassword: z.string().min(1, "Enter your current password"),
-    newPassword: passwordSchema,
-    confirmPassword: z.string().min(1, "Confirm your new password"),
-  })
-  .refine((values) => values.newPassword === values.confirmPassword, {
+/** Client-side schema that mirrors the selected organisation policy. */
+export function createPasswordSchema(policy: PasswordPolicyId) {
+  const rules = getPasswordPolicyRules(policy);
+  return z.string().superRefine((value, ctx) => {
+    const message = findPasswordPolicyViolation(value, rules);
+    if (message) {
+      ctx.addIssue({ code: "custom", message });
+    }
+  });
+}
+
+function withPasswordConfirmation<
+  T extends z.ZodType<{ newPassword: string; confirmPassword: string }>,
+>(schema: T) {
+  return schema.refine((values) => values.newPassword === values.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
-  })
-  .refine((values) => values.newPassword !== values.currentPassword, {
+  });
+}
+
+export const changePasswordSchema = withPasswordConfirmation(
+  z.object({
+    currentPassword: z.string().min(1, "Enter your current password"),
+    newPassword: passwordCandidateSchema,
+    confirmPassword: z.string().min(1, "Confirm your new password"),
+  }),
+).refine((values) => values.newPassword !== values.currentPassword, {
+  message: "Choose a password you have not used before",
+  path: ["newPassword"],
+});
+
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
+export function createChangePasswordSchema(policy: PasswordPolicyId) {
+  return withPasswordConfirmation(
+    z.object({
+      currentPassword: z.string().min(1, "Enter your current password"),
+      newPassword: createPasswordSchema(policy),
+      confirmPassword: z.string().min(1, "Confirm your new password"),
+    }),
+  ).refine((values) => values.newPassword !== values.currentPassword, {
     message: "Choose a password you have not used before",
     path: ["newPassword"],
   });
-
-export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+}
 
 export const forgotPasswordSchema = z.object({ email: emailSchema });
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 
-export const resetPasswordSchema = z
-  .object({
+export const resetPasswordSchema = withPasswordConfirmation(
+  z.object({
     token: z.string().trim().min(1, "This reset link is invalid or has expired.").max(200),
-    newPassword: passwordSchema,
+    newPassword: passwordCandidateSchema,
     confirmPassword: z.string().min(1, "Confirm your new password"),
-  })
-  .refine((values) => values.newPassword === values.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  });
+  }),
+);
 
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
+export function createResetPasswordSchema(policy: PasswordPolicyId) {
+  return withPasswordConfirmation(
+    z.object({
+      token: z.string().trim().min(1, "This reset link is invalid or has expired.").max(200),
+      newPassword: createPasswordSchema(policy),
+      confirmPassword: z.string().min(1, "Confirm your new password"),
+    }),
+  );
+}

@@ -4,14 +4,12 @@ import { PageContainer } from "@/components/layout/page-container";
 import { AccessDenied } from "@/components/shared/access-denied";
 import { PageHeader } from "@/components/shared/page-header";
 import { PERMISSIONS } from "@/constants/permissions";
-import { GeneralSettingsForm } from "@/features/settings/components/general-settings-form";
-import { hasAllPermissions } from "@/lib/authorization";
+import { AppearanceSettings } from "@/features/settings/components/appearance-settings";
 import { requirePageAccess } from "@/lib/page-guard";
-import { getOrganizationSettings } from "@/services/settings-service";
 
-export const metadata: Metadata = { title: "Company Information" };
+export const metadata: Metadata = { title: "General Settings" };
 
-export default async function CompanyInformationPage() {
+export default async function GeneralSettingsPage() {
   const access = await requirePageAccess(PERMISSIONS.SETTINGS.VIEW);
 
   if (!access.allowed) {
@@ -22,18 +20,13 @@ export default async function CompanyInformationPage() {
     );
   }
 
-  const settings = await getOrganizationSettings();
-
   return (
     <PageContainer>
       <PageHeader
-        title="Company Information"
-        description="Company identity and contact details used across the console."
+        title="General Settings"
+        description="Screen theme and accent colour for the console."
       />
-      <GeneralSettingsForm
-        settings={settings}
-        canEdit={hasAllPermissions(access.actor, [PERMISSIONS.SETTINGS.EDIT])}
-      />
+      <AppearanceSettings />
     </PageContainer>
   );
 }

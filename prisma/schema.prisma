@@ -135,6 +135,11 @@ model Organization {
   state       String? @db.VarChar(80)
   postalCode  String? @map("postal_code") @db.VarChar(20)
   country     String? @db.VarChar(80)
+  logoPath    String? @map("logo_path") @db.VarChar(240)
+  /// Deactivate users who have not signed in for this many days. Null = off.
+  inactivityDeactivateAfterDays Int? @map("inactivity_deactivate_after_days")
+  /// Named password policy. Catalog lives in `PASSWORD_POLICY_CATALOG`.
+  passwordPolicy String @default("strong") @map("password_policy") @db.VarChar(32)
 
   status RecordStatus @default(ACTIVE)
 
@@ -203,6 +208,7 @@ model Branch {
   state        String? @db.VarChar(80)
   postalCode   String? @map("postal_code") @db.VarChar(20)
   country      String? @db.VarChar(80)
+  logoPath     String? @map("logo_path") @db.VarChar(240)
 
   status RecordStatus @default(ACTIVE)
 
@@ -371,8 +377,17 @@ model User {
 
   status RecordStatus @default(ACTIVE)
 
+  /// Email one-time codes at sign-in. Null means this method is off.
+  emailOtpEnabledAt DateTime? @map("email_otp_enabled_at")
+  /// Authenticator-app TOTP (Microsoft Authenticator and compatible apps).
+  totpEnabledAt DateTime? @map("totp_enabled_at")
+  /// AES-GCM sealed TOTP secret. Never returned in listings or actor context.
+  totpSecretEnc String? @map("totp_secret_enc") @db.VarChar(512)
+
   /// Forces a password change on next sign-in, used for admin-created accounts.
   mustChangePassword Boolean @default(false) @map("must_change_password")
+  /// When set, a must-change (temporary) password cannot be used after this time.
+  temporaryPasswordExpiresAt DateTime? @map("temporary_password_expires_at")
   /// Bumped on password change or forced logout, which invalidates issued cookies.
   tokenVersion       Int     @default(0) @map("token_version")
 
@@ -386,6 +401,7 @@ model User {
   deletedAt DateTime? @map("deleted_at")
 
   passwordResetTokens PasswordResetToken[]
+  twoFactorChallenges TwoFactorChallenge[]
   auditLogs           AuditLog[]
   attendanceDays      Attendance[]
   leaveRequests       LeaveRequest[]
@@ -566,6 +582,47 @@ model Worklog {
   @@index([userId])
   @@index([workDate])
   @@map("worklogs")
+}
+
+enum TwoFactorMethod {
+  EMAIL
+  AUTHENTICATOR
+
+  @@map("two_factor_method")
+}
+
+enum TwoFactorPurpose {
+  LOGIN
+  ENROLL
+  DISABLE
+
+  @@map("two_factor_purpose")
+}
+
+/// Short-lived 2FA step: login after password, or enrol/disable a method.
+/// Email codes are stored as hashes. Pending authenticator secrets are sealed.
+model TwoFactorChallenge {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(cuid(2)) @map("public_id")
+
+  userId Int  @map("user_id")
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  purpose TwoFactorPurpose
+  method  TwoFactorMethod
+
+  codeHash  String? @map("code_hash") @db.VarChar(128)
+  secretEnc String? @map("secret_enc") @db.VarChar(512)
+
+  expiresAt      DateTime  @map("expires_at")
+  consumedAt     DateTime? @map("consumed_at")
+  failedAttempts Int       @default(0) @map("failed_attempts")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId, purpose, consumedAt])
+  @@index([expiresAt])
+  @@map("two_factor_challenges")
 }
 
 /// Reset tokens are stored as hashes: a leaked database row must not be redeemable.

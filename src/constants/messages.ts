@@ -12,7 +12,13 @@ export const ERROR_MESSAGES = {
   RATE_LIMITED: "Too many attempts. Please wait a moment and try again.",
   INVALID_CREDENTIALS: "The email or password you entered is incorrect.",
   ACCOUNT_INACTIVE: "This account is inactive. Contact your administrator.",
+  TEMPORARY_PASSWORD_EXPIRED:
+    "Your temporary password has expired. Contact your administrator.",
   PASSWORD_RESET_INVALID: "This reset link is invalid or has expired.",
+  TWO_FACTOR_INVALID: "That code is incorrect or has expired. Try again or request a new code.",
+  TWO_FACTOR_EXPIRED: "Your sign-in verification has expired. Sign in again with your password.",
+  TWO_FACTOR_REQUIRED: "Two-factor verification is required to finish signing in.",
+  TWO_FACTOR_METHOD_UNAVAILABLE: "That verification method is not enabled for your account.",
 } as const;
 
 export const SUCCESS_MESSAGES = {
@@ -29,6 +35,17 @@ export const SUCCESS_MESSAGES = {
   PASSWORD_RESET_LINK_SENT: "A password reset email has been sent.",
   AVATAR_UPDATED: "Profile photo updated.",
   AVATAR_REMOVED: "Profile photo removed.",
+  LOGO_UPDATED: "Company logo updated.",
+  LOGO_REMOVED: "Company logo removed.",
+  SECURITY_POLICY_UPDATED: "Inactivity policy saved.",
+  PASSWORD_POLICY_UPDATED: "Password policy saved.",
+  TWO_FACTOR_EMAIL_ENABLED: "Email one-time passwords are now required at sign-in.",
+  TWO_FACTOR_EMAIL_DISABLED: "Email one-time passwords have been turned off.",
+  TWO_FACTOR_AUTHENTICATOR_ENABLED: "Microsoft Authenticator is now required at sign-in.",
+  TWO_FACTOR_AUTHENTICATOR_DISABLED: "Microsoft Authenticator has been turned off.",
+  TWO_FACTOR_CODE_SENT: "A sign-in code has been sent to your email.",
+  TWO_FACTOR_VERIFIED: "Verification successful.",
+  USER_WELCOME_SENT: "User created. A temporary password was emailed with the sign-in link.",
 } as const;
 
 export const EMPTY_STATE_MESSAGES = {
@@ -51,7 +68,6 @@ export const BRANCH_MESSAGES = {
   USERS_ASSIGNED_DEACTIVATE: "Reassign users before deactivating this branch.",
   USERS_ASSIGNED_DELETE: "Reassign users before deleting this branch.",
   LAST_BRANCH: "The organization must keep at least one branch.",
-  ENTITY_INACTIVE: "Assign an active entity.",
   EXPORT_TRUNCATED: "The export was limited to the first 5,000 matching rows.",
 } as const;
 
@@ -87,6 +103,8 @@ export const USER_MESSAGES = {
   RESET_INACTIVE: "Activate the account before sending a password reset.",
   RESET_COOLDOWN: "A reset email was sent recently. Wait a minute before sending another.",
   RESET_EMAIL_FAILED: "The password reset email could not be sent. Try again later.",
+  WELCOME_EMAIL_FAILED:
+    "The user was created but the welcome email could not be sent. Use Send password reset.",
   EXPORT_TRUNCATED: "The export was limited to the first 5,000 matching rows.",
 } as const;
 
@@ -101,12 +119,12 @@ export const PROFILE_MESSAGES = {
 export const SETTINGS_MESSAGES = {
   ORGANIZATION_MISSING: "Organisation settings could not be loaded.",
   CODE_TAKEN: "Company code is already in use.",
-} as const;
-
-export const ENTITY_MESSAGES = {
-  CODE_TAKEN: "Entity code is already in use.",
-  NAME_TAKEN: "Entity name is already in use.",
-  BRANCHES_ASSIGNED_DEACTIVATE: "Reassign branches before deactivating this entity.",
-  BRANCHES_ASSIGNED_DELETE: "Reassign branches before deleting this entity.",
+  LOGO_REQUIRED: "Choose an image file.",
+  LOGO_TYPE: "Use a JPG, PNG or WEBP image.",
+  LOGO_TOO_LARGE: "Image must be 2 MB or smaller.",
+  LOGO_EMPTY: "The selected file is empty.",
+  LOGO_INVALID: "That file is not a valid image.",
+  INACTIVITY_DAYS_INVALID: "Choose Off, 7 days, 30 days, 60 days, 90 days or 1 year.",
+  PASSWORD_POLICY_INVALID: "Choose Basic, Standard, Strong or Strict.",
 } as const;
 

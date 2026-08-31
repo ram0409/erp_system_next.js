@@ -20,9 +20,9 @@ const LIST_SELECT = {
   phone: true,
   city: true,
   state: true,
+  logoPath: true,
   status: true,
   createdAt: true,
-  entity: { select: { publicId: true, code: true, name: true, status: true } },
   _count: { select: { users: { where: NOT_DELETED } } },
 } satisfies Prisma.BranchSelect;
 
@@ -47,7 +47,6 @@ export interface BranchListFilters {
   readonly search?: string | undefined;
   readonly status?: RecordStatus | undefined;
   readonly type?: BranchType | undefined;
-  readonly entityId?: number | undefined;
 }
 
 export interface CreateBranchInput {
@@ -75,17 +74,10 @@ function listWhere(filters: BranchListFilters): Prisma.BranchWhereInput {
 
   if (filters.status) where.status = filters.status;
   if (filters.type) where.type = filters.type;
-  if (filters.entityId) where.entityId = filters.entityId;
 
   const term = filters.search?.trim();
   if (term) {
-    where.OR = [
-      { code: contains(term) },
-      { name: contains(term) },
-      { city: contains(term) },
-      { entity: { name: contains(term) } },
-      { entity: { code: contains(term) } },
-    ];
+    where.OR = [{ code: contains(term) }, { name: contains(term) }, { city: contains(term) }];
   }
 
   return where;
@@ -131,28 +123,18 @@ export function findIdByPublicId(publicId: string): Promise<number | null> {
 }
 
 /** Active branches for workspace and assignment dropdowns. */
-export function listOptions(
-  entityId?: number,
-): Promise<{ publicId: string; code: string; name: string; entityPublicId: string }[]> {
+export function listOptions(): Promise<
+  { publicId: string; code: string; name: string; logoPath: string | null }[]
+> {
   return withPrismaErrors("branch.listOptions", () =>
-    prisma.branch
-      .findMany({
-        where: {
-          ...NOT_DELETED,
-          status: "ACTIVE",
-          ...(entityId !== undefined ? { entityId } : {}),
-        },
-        select: { publicId: true, code: true, name: true, entity: { select: { publicId: true } } },
-        orderBy: { name: "asc" },
-      })
-      .then((rows) =>
-        rows.map((row) => ({
-          publicId: row.publicId,
-          code: row.code,
-          name: row.name,
-          entityPublicId: row.entity.publicId,
-        })),
-      ),
+    prisma.branch.findMany({
+      where: {
+        ...NOT_DELETED,
+        status: "ACTIVE",
+      },
+      select: { publicId: true, code: true, name: true, logoPath: true },
+      orderBy: { name: "asc" },
+    }),
   );
 }
 
@@ -261,15 +243,23 @@ export function softDelete(publicId: string): Promise<{ id: number }> {
   );
 }
 
-export function isCodeTaken(
-  entityId: number,
-  code: string,
-  exceptPublicId?: string,
-): Promise<boolean> {
+export function updateLogoPath(
+  publicId: string,
+  logoPath: string | null,
+): Promise<{ logoPath: string | null }> {
+  return withPrismaErrors("branch.updateLogoPath", () =>
+    prisma.branch.update({
+      where: { publicId },
+      data: { logoPath },
+      select: { logoPath: true },
+    }),
+  );
+}
+
+export function isCodeTaken(code: string, exceptPublicId?: string): Promise<boolean> {
   return withPrismaErrors("branch.isCodeTaken", async () => {
     const found = await prisma.branch.findFirst({
       where: {
-        entityId,
         codeNormalized: normalizeCode(code),
         ...(exceptPublicId ? { publicId: { not: exceptPublicId } } : {}),
       },
@@ -279,15 +269,10 @@ export function isCodeTaken(
   });
 }
 
-export function isNameTaken(
-  entityId: number,
-  name: string,
-  exceptPublicId?: string,
-): Promise<boolean> {
+export function isNameTaken(name: string, exceptPublicId?: string): Promise<boolean> {
   return withPrismaErrors("branch.isNameTaken", async () => {
     const found = await prisma.branch.findFirst({
       where: {
-        entityId,
         nameNormalized: normalizeKey(name),
         ...NOT_DELETED,
         ...(exceptPublicId ? { publicId: { not: exceptPublicId } } : {}),
@@ -342,13 +327,11 @@ export function countActive(): Promise<number> {
   );
 }
 
-export function countByStatus(
-  entityId?: number,
-): Promise<{ status: RecordStatus; count: number }[]> {
+export function countByStatus(): Promise<{ status: RecordStatus; count: number }[]> {
   return withPrismaErrors("branch.countByStatus", async () => {
     const grouped = await prisma.branch.groupBy({
       by: ["status"],
-      where: { ...NOT_DELETED, ...(entityId !== undefined ? { entityId } : {}) },
+      where: { ...NOT_DELETED },
       _count: { _all: true },
     });
     return grouped.map((row) => ({ status: row.status, count: row._count._all }));

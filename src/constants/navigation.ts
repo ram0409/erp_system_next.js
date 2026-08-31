@@ -16,9 +16,10 @@ export type NavIconName =
   | "roles"
   | "permissions"
   | "branches"
-  | "entity"
   | "settings"
   | "general-settings"
+  | "company-details"
+  | "security"
   | "profile"
   | "audit-logs";
 
@@ -72,13 +73,6 @@ export const NAVIGATION: readonly NavItem[] = [
     children: [
       {
         kind: "link",
-        label: "Entity",
-        href: ROUTES.ENTITY,
-        icon: "entity",
-        permission: PERMISSIONS.ENTITIES.VIEW,
-      },
-      {
-        kind: "link",
         label: "Branches",
         href: ROUTES.BRANCHES,
         icon: "branches",
@@ -115,9 +109,16 @@ export const NAVIGATION: readonly NavItem[] = [
     children: [
       {
         kind: "link",
-        label: "Company Information",
+        label: "General Settings",
         href: ROUTES.SETTINGS_GENERAL,
         icon: "general-settings",
+        permission: PERMISSIONS.SETTINGS.VIEW,
+      },
+      {
+        kind: "link",
+        label: "Company Details",
+        href: ROUTES.SETTINGS_COMPANY,
+        icon: "company-details",
         permission: PERMISSIONS.SETTINGS.VIEW,
       },
       {
@@ -125,6 +126,12 @@ export const NAVIGATION: readonly NavItem[] = [
         label: "Profile",
         href: ROUTES.PROFILE,
         icon: "profile",
+      },
+      {
+        kind: "link",
+        label: "Security",
+        href: ROUTES.SETTINGS_SECURITY,
+        icon: "security",
       },
       {
         kind: "link",

@@ -13,7 +13,9 @@ import {
   branchPublicIdSchema,
   createBranchSchema,
   exportBranchesSchema,
+  removeBranchLogoSchema,
   updateBranchSchema,
+  uploadBranchLogoSchema,
 } from "@/validations/branch";
 
 async function auditMeta() {
@@ -22,7 +24,6 @@ async function auditMeta() {
 
 function revalidateBranches(): void {
   revalidatePath(ROUTES.BRANCHES);
-  revalidatePath(ROUTES.ENTITY);
   revalidatePath(ROUTES.DASHBOARD);
   revalidatePath("/", "layout");
 }
@@ -111,4 +112,37 @@ export const exportBranchesAction = defineAction({
   schema: exportBranchesSchema,
   successMessage: SUCCESS_MESSAGES.EXPORTED,
   handler: async (input) => branchService.exportBranches(input),
+});
+
+export const uploadBranchLogoAction = defineAction({
+  name: "branches.uploadLogo",
+  permission: PERMISSIONS.BRANCHES.EDIT,
+  schema: uploadBranchLogoSchema,
+  successMessage: SUCCESS_MESSAGES.LOGO_UPDATED,
+  handler: async (input, actor) => {
+    const result = await branchService.uploadBranchLogo(
+      input.publicId,
+      input.file,
+      actor,
+      await auditMeta(),
+    );
+    revalidateBranches();
+    return result;
+  },
+});
+
+export const removeBranchLogoAction = defineAction({
+  name: "branches.removeLogo",
+  permission: PERMISSIONS.BRANCHES.EDIT,
+  schema: removeBranchLogoSchema,
+  successMessage: SUCCESS_MESSAGES.LOGO_REMOVED,
+  handler: async (input, actor) => {
+    const result = await branchService.removeBranchLogo(
+      input.publicId,
+      actor,
+      await auditMeta(),
+    );
+    revalidateBranches();
+    return result;
+  },
 });

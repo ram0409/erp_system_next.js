@@ -33,11 +33,11 @@ export function DashboardKpiCard({
   tone = "brand",
 }: DashboardKpiCardProps) {
   const content = (
-    <Card className={cn("h-full", href && "hover:border-primary/40 transition-colors")}>
+    <Card className={cn("h-full transition-[border-color,box-shadow,transform] duration-200", href && "hover:border-primary/35 hover:shadow-md motion-safe:hover:-translate-y-0.5")}>
       <CardContent className="flex h-full items-start gap-4 py-5">
         <span
           className={cn(
-            "flex size-10 shrink-0 items-center justify-center rounded-md",
+            "flex size-11 shrink-0 items-center justify-center rounded-xl",
             iconToneClass[tone],
           )}
         >
@@ -61,7 +61,7 @@ export function DashboardKpiCard({
   return (
     <Link
       href={href}
-      className="focus-visible:ring-ring block h-full rounded-lg focus-visible:ring-2 focus-visible:outline-none"
+      className="focus-visible:ring-ring block h-full rounded-xl focus-visible:ring-2 focus-visible:outline-none"
     >
       {content}
     </Link>

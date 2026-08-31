@@ -7,6 +7,11 @@ import { AuthPageHeading } from "@/features/auth/components/auth-page-heading";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { isSafeRelativePath } from "@/lib/login-href";
 import { getActorContext } from "@/lib/session";
+import {
+  clearTwoFactorPendingCookie,
+  readTwoFactorPendingCookie,
+} from "@/lib/two-factor-pending-cookie";
+import * as twoFactorService from "@/services/two-factor-service";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -23,6 +28,26 @@ export default async function LoginPage({
   }
 
   const params = await searchParams;
+  const cancelRaw = params.cancel;
+  const cancel = (Array.isArray(cancelRaw) ? cancelRaw[0] : cancelRaw) === "1";
+
+  if (cancel) {
+    await clearTwoFactorPendingCookie();
+  } else {
+    const pendingChallengeId = await readTwoFactorPendingCookie();
+
+    if (pendingChallengeId) {
+      const pendingChallenge =
+        await twoFactorService.getLoginChallengeSummary(pendingChallengeId);
+
+      if (pendingChallenge) {
+        redirect(ROUTES.VERIFY_TWO_FACTOR);
+      }
+
+      await clearTwoFactorPendingCookie();
+    }
+  }
+
   const raw = params[CALLBACK_URL_PARAM];
   const candidate = Array.isArray(raw) ? raw[0] : raw;
   const next = isSafeRelativePath(candidate) ? candidate : undefined;

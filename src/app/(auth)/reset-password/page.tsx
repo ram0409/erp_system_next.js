@@ -7,6 +7,7 @@ import { ROUTES } from "@/constants/routes";
 import { AuthPageHeading } from "@/features/auth/components/auth-page-heading";
 import { ResetPasswordForm } from "@/features/auth/components/reset-password-form";
 import { getActorContext } from "@/lib/session";
+import { getPasswordPolicy } from "@/services/settings-service";
 
 export const metadata: Metadata = { title: "Set a new password" };
 
@@ -24,6 +25,7 @@ export default async function ResetPasswordPage({
   const params = await searchParams;
   const raw = params.token;
   const token = (Array.isArray(raw) ? raw[0] : raw)?.trim() ?? "";
+  const passwordPolicy = await getPasswordPolicy();
 
   return (
     <div className="space-y-6">
@@ -32,7 +34,7 @@ export default async function ResetPasswordPage({
         description="Choose a password you have not used before."
       />
       {token ? (
-        <ResetPasswordForm token={token} />
+        <ResetPasswordForm token={token} policy={passwordPolicy.policy} />
       ) : (
         <div
           role="alert"

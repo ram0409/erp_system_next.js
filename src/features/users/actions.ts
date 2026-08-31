@@ -37,7 +37,7 @@ export const createUserAction = defineAction({
   name: "users.create",
   permission: PERMISSIONS.USERS.CREATE,
   schema: createUserSchema,
-  successMessage: SUCCESS_MESSAGES.CREATED,
+  successMessage: SUCCESS_MESSAGES.USER_WELCOME_SENT,
   handler: async (input, actor) => {
     const data = await userService.createUser(input, actor, await auditMeta());
     revalidateUsers();

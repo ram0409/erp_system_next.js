@@ -12,16 +12,14 @@ function homeScope(
   actor: NonNullable<Awaited<ReturnType<typeof getActorContext>>>,
 ): WorkspaceScope {
   return {
-    entityId: actor.entityId,
     branchId: actor.branchId,
-    entityPublicId: actor.user.branch.entity.publicId,
     branchPublicId: actor.user.branch.publicId,
   };
 }
 
 /**
- * Selected Entity + Branch for this request. Listings, counts and assignment
- * dropdowns read this so the header switcher actually changes what is shown.
+ * Selected Branch for this request. Listings, counts and assignment dropdowns
+ * read this so the header switcher actually changes what is shown.
  */
 export const getWorkspaceScope = cache(async (): Promise<WorkspaceScope | null> => {
   const actor = await getActorContext();
@@ -36,18 +34,12 @@ export const getWorkspaceScope = cache(async (): Promise<WorkspaceScope | null> 
   }
 
   const branch = await branchRepository.findByPublicId(cookie.branchPublicId);
-  if (
-    !branch ||
-    branch.status !== RECORD_STATUS.ACTIVE ||
-    branch.entity.publicId !== cookie.entityPublicId
-  ) {
+  if (!branch || branch.status !== RECORD_STATUS.ACTIVE) {
     return assigned;
   }
 
   return {
-    entityId: branch.entityId,
     branchId: branch.id,
-    entityPublicId: branch.entity.publicId,
     branchPublicId: branch.publicId,
   };
 });

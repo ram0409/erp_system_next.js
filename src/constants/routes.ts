@@ -4,6 +4,7 @@ export const ROUTES = {
   LOGIN: "/login",
   FORGOT_PASSWORD: "/forgot-password",
   RESET_PASSWORD: "/reset-password",
+  VERIFY_TWO_FACTOR: "/verify-2fa",
 
   DASHBOARD: "/dashboard",
 
@@ -12,12 +13,15 @@ export const ROUTES = {
   ROLES: "/administration/roles",
   ROLE_PERMISSIONS: "/administration/role-permissions",
   BRANCHES: "/administration/branches",
+  /** Compatibility redirect to Branches. Not a sidebar item. */
   ENTITY: "/administration/entity",
-  /** Compatibility redirect to Company Information. Not a sidebar item. */
+  /** Compatibility redirect to Company Details. Not a sidebar item. */
   ORGANIZATION: "/administration/organization",
 
   SETTINGS: "/settings",
   SETTINGS_GENERAL: "/settings/general",
+  SETTINGS_COMPANY: "/settings/company",
+  SETTINGS_SECURITY: "/settings/security",
   SETTINGS_AUDIT_LOGS: "/settings/audit-logs",
 
   PROFILE: "/profile",
@@ -34,6 +38,7 @@ export const PUBLIC_ROUTES: readonly string[] = [
   ROUTES.LOGIN,
   ROUTES.FORGOT_PASSWORD,
   ROUTES.RESET_PASSWORD,
+  ROUTES.VERIFY_TWO_FACTOR,
 ];
 
 /**
@@ -50,7 +55,9 @@ export const SEGMENT_LABELS: Readonly<Record<string, string>> = {
   entity: "Entity",
   organization: "Organization",
   settings: "Settings",
-  general: "Company Information",
+  general: "General Settings",
+  company: "Company Details",
+  security: "Security",
   "audit-logs": "Audit Logs",
   profile: "Profile",
   "change-password": "Change Password",

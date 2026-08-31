@@ -27,7 +27,7 @@ export function FilterBar({ children, hasActiveFilters = false, className }: Fil
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 px-5 pt-5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3",
+        "flex flex-col gap-3 px-5 pt-5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 sm:px-6",
         className,
       )}
     >

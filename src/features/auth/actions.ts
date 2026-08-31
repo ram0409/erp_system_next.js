@@ -8,8 +8,13 @@ import { SUCCESS_MESSAGES } from "@/constants/messages";
 import { defineAuthenticatedAction, definePublicAction } from "@/lib/action";
 import { getUserAgent } from "@/lib/request";
 import { clearSessionCookie, setSessionCookie } from "@/lib/session-cookie";
+import {
+  clearTwoFactorPendingCookie,
+  setTwoFactorPendingCookie,
+} from "@/lib/two-factor-pending-cookie";
 import { clearWorkspaceCookie } from "@/lib/workspace-cookie";
 import * as authService from "@/services/auth-service";
+import { scheduleInactivitySweep } from "@/services/inactivity-service";
 import {
   changePasswordSchema,
   forgotPasswordSchema,
@@ -29,7 +34,6 @@ import {
 export const signInAction = definePublicAction({
   name: "auth.signIn",
   schema: signInSchema,
-  successMessage: "Signed in successfully.",
   handler: async (input, context) => {
     const result = await authService.signIn({
       email: input.email,
@@ -38,9 +42,21 @@ export const signInAction = definePublicAction({
       userAgent: await getUserAgent(),
     });
 
+    if (result.kind === "two_factor") {
+      await setTwoFactorPendingCookie(result.challenge.challengePublicId);
+
+      return {
+        requiresTwoFactor: true,
+        mustChangePassword: result.mustChangePassword,
+        redirectTo: ROUTES.VERIFY_TWO_FACTOR,
+      };
+    }
+
     await setSessionCookie(result.claims);
+    scheduleInactivitySweep(result.userId);
 
     return {
+      requiresTwoFactor: false,
       mustChangePassword: result.mustChangePassword,
       redirectTo: result.mustChangePassword ? ROUTES.CHANGE_PASSWORD : ROUTES.DASHBOARD,
     };
@@ -64,6 +80,7 @@ export const signOutAction = defineAuthenticatedAction({
 
     await clearSessionCookie();
     await clearWorkspaceCookie();
+    await clearTwoFactorPendingCookie();
 
     return { redirectTo: ROUTES.LOGIN };
   },
@@ -123,6 +140,7 @@ export const resetPasswordAction = definePublicAction({
 
     await clearSessionCookie();
     await clearWorkspaceCookie();
+    await clearTwoFactorPendingCookie();
 
     return { redirectTo: ROUTES.LOGIN };
   },

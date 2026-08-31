@@ -17,6 +17,7 @@ import { ROUTES } from "@/constants/routes";
 import { permissionChecker, toPermissionSnapshot } from "@/lib/authorization";
 import { loginHref } from "@/lib/login-href";
 import { getActorContext, getSessionExpiresAt, requiresPasswordChange } from "@/lib/session";
+import { getCompanyBrand } from "@/services/settings-service";
 import { getWorkspaceSwitcher } from "@/services/workspace-service";
 
 function PageFallback() {
@@ -56,8 +57,11 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   }
 
   const navItems = filterNavigation(NAVIGATION, permissionChecker(actor));
-  const appName = publicEnv.NEXT_PUBLIC_APP_NAME;
-  const workspace = await getWorkspaceSwitcher(actor);
+  const [brand, workspace] = await Promise.all([
+    getCompanyBrand(),
+    getWorkspaceSwitcher(actor),
+  ]);
+  const companyName = brand.name?.trim() || publicEnv.NEXT_PUBLIC_APP_NAME;
   const sessionExpiresAt = await getSessionExpiresAt();
 
   return (
@@ -65,12 +69,13 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       {sessionExpiresAt ? <SessionExpiryGuard expiresAt={sessionExpiresAt.toISOString()} /> : null}
       <NavigationProgress />
       <div className="app-canvas flex min-h-dvh">
-        <AppSidebar items={navItems} appName={appName} />
+        <AppSidebar items={navItems} companyName={companyName} logoUrl={brand.logoUrl} />
         <div className="flex min-w-0 flex-1 flex-col">
           <AppHeader
             user={actor.user}
             navItems={navItems}
-            appName={appName}
+            companyName={companyName}
+            logoUrl={brand.logoUrl}
             workspace={workspace}
           />
           <main id="main-content" className="flex-1">

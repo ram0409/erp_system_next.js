@@ -1,7 +1,7 @@
 import "server-only";
 
 import { EXPORT_MAX_ROWS, TABLE_QUERY_KEYS } from "@/constants/pagination";
-import { BRANCH_MESSAGES, ERROR_MESSAGES } from "@/constants/messages";
+import { BRANCH_MESSAGES, ERROR_MESSAGES, SETTINGS_MESSAGES } from "@/constants/messages";
 import {
   AUDIT_ACTIONS,
   BRANCH_TYPE_LABELS,
@@ -14,7 +14,8 @@ import {
 } from "@/constants/status";
 import { duplicateFieldError, ForbiddenError, InternalError, NotFoundError, ValidationError } from "@/lib/errors";
 import { resolveAllowedValue, resolvePagination, resolveSearchTerm, resolveSort } from "@/lib/pagination";
-import { getWorkspaceScope } from "@/lib/workspace-scope";
+import { buildLogoPublicPath, detectLogoExtension } from "@/lib/logo";
+import { deleteLogoFile, writeLogoFile } from "@/lib/logo-storage";
 import * as auditRepository from "@/repositories/audit-repository";
 import * as branchRepository from "@/repositories/branch-repository";
 import {
@@ -76,14 +77,10 @@ function toListItem(row: BranchListRow): BranchListItem {
     phone: row.phone,
     city: row.city,
     state: row.state,
+    logoUrl: row.logoPath,
     status: row.status,
     createdAt: row.createdAt.toISOString(),
     userCount: row._count.users,
-    entity: {
-      publicId: row.entity.publicId,
-      code: row.entity.code,
-      name: row.entity.name,
-    },
   };
 }
 
@@ -128,35 +125,21 @@ async function writeAudit(
   });
 }
 
-async function resolveAssignedEntity(
-  publicId: string,
-  currentEntityId?: number,
-): Promise<{ id: number }> {
-  const row = await entityRepository.findByPublicId(publicId);
-  if (!row) {
-    throw new ValidationError(BRANCH_MESSAGES.ENTITY_INACTIVE, {
-      fieldErrors: [{ field: "entityPublicId", message: BRANCH_MESSAGES.ENTITY_INACTIVE }],
+async function requireDefaultEntityId(): Promise<number> {
+  const id = await entityRepository.findPrimaryId();
+  if (id === null) {
+    throw new InternalError({
+      internalDetail: "No business_entities row exists to attach a branch to.",
     });
   }
-
-  const keepingCurrent = currentEntityId !== undefined && row.id === currentEntityId;
-  if (!keepingCurrent && row.status !== RECORD_STATUS.ACTIVE) {
-    throw new ValidationError(BRANCH_MESSAGES.ENTITY_INACTIVE, {
-      fieldErrors: [{ field: "entityPublicId", message: BRANCH_MESSAGES.ENTITY_INACTIVE }],
-    });
-  }
-
-  return row;
+  return id;
 }
 
 async function resolveListFilters(searchParams: RawSearchParams) {
-  const scope = await getWorkspaceScope();
-
   return {
     search: resolveSearchTerm(searchParams),
     status: resolveAllowedValue(searchParams, TABLE_QUERY_KEYS.STATUS, RECORD_STATUS_VALUES),
     type: resolveAllowedValue(searchParams, TABLE_QUERY_KEYS.TYPE, BRANCH_TYPE_VALUES),
-    ...(scope ? { entityId: scope.entityId } : {}),
   };
 }
 
@@ -177,22 +160,14 @@ export async function getBranch(publicId: string): Promise<BranchDetail> {
   return toDetail(await requireBranch(publicId));
 }
 
-async function assertUniqueCode(
-  entityId: number,
-  code: string,
-  exceptPublicId?: string,
-): Promise<void> {
-  if (await branchRepository.isCodeTaken(entityId, code, exceptPublicId)) {
+async function assertUniqueCode(code: string, exceptPublicId?: string): Promise<void> {
+  if (await branchRepository.isCodeTaken(code, exceptPublicId)) {
     throw duplicateFieldError("code", "Branch code");
   }
 }
 
-async function assertUniqueName(
-  entityId: number,
-  name: string,
-  exceptPublicId?: string,
-): Promise<void> {
-  if (await branchRepository.isNameTaken(entityId, name, exceptPublicId)) {
+async function assertUniqueName(name: string, exceptPublicId?: string): Promise<void> {
+  if (await branchRepository.isNameTaken(name, exceptPublicId)) {
     throw duplicateFieldError("name", "Branch name");
   }
 }
@@ -203,17 +178,17 @@ export async function createBranch(
   meta: AuditMeta = {},
 ): Promise<BranchDetail> {
   const organizationId = await requireOrganizationId();
-  const entity = await resolveAssignedEntity(input.entityPublicId);
+  const entityId = await requireDefaultEntityId();
   const existingCount = await branchRepository.countNotDeleted(organizationId);
   const headOfficeCount = await branchRepository.countHeadOffices(organizationId);
   const isHeadOffice = existingCount === 0 || headOfficeCount === 0 ? true : input.isHeadOffice;
 
-  await assertUniqueCode(entity.id, input.code);
-  await assertUniqueName(entity.id, input.name);
+  await assertUniqueCode(input.code);
+  await assertUniqueName(input.name);
 
   const created = await branchRepository.create({
     organizationId,
-    entityId: entity.id,
+    entityId,
     code: input.code,
     name: input.name,
     type: input.type,
@@ -239,7 +214,6 @@ export async function createBranch(
       name: created.name,
       type: created.type,
       isHeadOffice,
-      entity: created.entity.code,
     },
   });
 
@@ -259,13 +233,11 @@ export async function updateBranch(
 
   const headOfficeCount = await branchRepository.countHeadOffices(existing.organizationId);
   const isHeadOffice = headOfficeCount === 0 ? true : input.isHeadOffice;
-  const entity = await resolveAssignedEntity(input.entityPublicId, existing.entityId);
 
-  await assertUniqueCode(entity.id, input.code, input.publicId);
-  await assertUniqueName(entity.id, input.name, input.publicId);
+  await assertUniqueCode(input.code, input.publicId);
+  await assertUniqueName(input.name, input.publicId);
 
   const updated = await branchRepository.update(input.publicId, {
-    entityId: entity.id,
     code: input.code,
     name: input.name,
     type: input.type,
@@ -290,7 +262,6 @@ export async function updateBranch(
       name: { from: existing.name, to: updated.name },
       type: { from: existing.type, to: updated.type },
       isHeadOffice: { from: existing.isHeadOffice, to: updated.isHeadOffice },
-      entity: { from: existing.entity.code, to: updated.entity.code },
       status: { from: existing.status, to: updated.status },
     },
   });
@@ -371,6 +342,10 @@ export async function deleteBranch(
 
   const deleted = await branchRepository.softDelete(publicId);
 
+  if (existing.logoPath) {
+    await deleteLogoFile(existing.logoPath);
+  }
+
   await writeAudit(actor, meta, {
     action: AUDIT_ACTIONS.DELETE,
     entityId: deleted.id,
@@ -382,14 +357,11 @@ export async function deleteBranch(
 export async function exportBranches(
   filters: ExportBranchesInput,
 ): Promise<BranchExportResult> {
-  const scope = await getWorkspaceScope();
-
   const { rows, total } = await branchRepository.listMatching(
     {
       search: filters.search,
       status: filters.status,
       type: filters.type,
-      ...(scope ? { entityId: scope.entityId } : {}),
     },
     EXPORT_MAX_ROWS,
     { sortBy: "name", sortDir: "asc" },
@@ -399,7 +371,6 @@ export async function exportBranches(
     [
       "Code",
       "Name",
-      "Entity",
       "Type",
       "Head office",
       "Status",
@@ -413,7 +384,6 @@ export async function exportBranches(
     rows.map((row) => [
       row.code,
       row.name,
-      row.entity.name,
       BRANCH_TYPE_LABELS[row.type as BranchType],
       row.isHeadOffice,
       RECORD_STATUS_LABELS[row.status],
@@ -434,4 +404,64 @@ export async function exportBranches(
     rowCount: rows.length,
     truncated: total > rows.length,
   };
+}
+
+export async function uploadBranchLogo(
+  publicId: string,
+  file: File,
+  actor: ActorContext,
+  meta: AuditMeta = {},
+): Promise<{ logoUrl: string }> {
+  const existing = await requireBranch(publicId);
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const extension = detectLogoExtension(bytes, file.type);
+
+  if (!extension) {
+    throw new ValidationError(SETTINGS_MESSAGES.LOGO_INVALID, {
+      fieldErrors: [{ field: "file", message: SETTINGS_MESSAGES.LOGO_INVALID }],
+    });
+  }
+
+  const publicPath = buildLogoPublicPath(existing.publicId, extension, Date.now());
+  await writeLogoFile(publicPath, bytes);
+
+  try {
+    await branchRepository.updateLogoPath(existing.publicId, publicPath);
+  } catch (error) {
+    await deleteLogoFile(publicPath);
+    throw error;
+  }
+
+  if (existing.logoPath && existing.logoPath !== publicPath) {
+    await deleteLogoFile(existing.logoPath);
+  }
+
+  await writeAudit(actor, meta, {
+    action: AUDIT_ACTIONS.UPDATE,
+    entityId: existing.id,
+    entityPublicId: existing.publicId,
+    summary: `Updated logo for branch ${existing.code} (${existing.name})`,
+  });
+
+  return { logoUrl: publicPath };
+}
+
+export async function removeBranchLogo(
+  publicId: string,
+  actor: ActorContext,
+  meta: AuditMeta = {},
+): Promise<{ logoUrl: null }> {
+  const existing = await requireBranch(publicId);
+
+  await branchRepository.updateLogoPath(existing.publicId, null);
+  await deleteLogoFile(existing.logoPath);
+
+  await writeAudit(actor, meta, {
+    action: AUDIT_ACTIONS.UPDATE,
+    entityId: existing.id,
+    entityPublicId: existing.publicId,
+    summary: `Removed logo for branch ${existing.code} (${existing.name})`,
+  });
+
+  return { logoUrl: null };
 }

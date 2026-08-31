@@ -7,7 +7,6 @@ const publicIdSchema = z
   .max(32, "The requested record could not be found.");
 
 export const setWorkspaceSchema = z.object({
-  entityPublicId: publicIdSchema,
   branchPublicId: publicIdSchema,
 });
 export type SetWorkspaceInput = z.infer<typeof setWorkspaceSchema>;
