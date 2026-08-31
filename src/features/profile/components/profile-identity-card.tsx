@@ -147,7 +147,7 @@ export function ProfileIdentityCard({ user }: ProfileIdentityCardProps) {
         </div>
 
         <Button asChild className="shrink-0 self-start sm:self-auto">
-          <Link href={ROUTES.CHANGE_PASSWORD}>
+          <Link href={ROUTES.SETTINGS_SECURITY}>
             <KeyRoundIcon />
             Change password
           </Link>

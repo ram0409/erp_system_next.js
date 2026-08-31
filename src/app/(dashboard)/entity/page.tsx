@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { ROUTES } from "@/constants/routes";
 
-/** Entity now lives under Administration. */
+/** Compatibility path. Entity is not an application module. */
 export default function EntityRedirectPage() {
-  redirect(ROUTES.ENTITY);
+  redirect(ROUTES.BRANCHES);
 }

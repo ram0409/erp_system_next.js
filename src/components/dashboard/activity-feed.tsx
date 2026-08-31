@@ -14,7 +14,7 @@ export function DashboardActivityFeed({ items }: DashboardActivityFeedProps) {
       <CardHeader>
         <CardTitle>Recent activity</CardTitle>
         <p className="text-muted-foreground text-sm">
-          Latest changes across users, roles, branches and entities.
+          Latest changes across users, roles and branches.
         </p>
       </CardHeader>
       <CardContent>

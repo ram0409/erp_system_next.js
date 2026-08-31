@@ -1,19 +1,22 @@
 import "server-only";
 
 import { env } from "@/config/env";
-import { PASSWORD_RESET_COOLDOWN_SECONDS } from "@/constants/auth";
+import { isTemporaryPasswordExpired, PASSWORD_RESET_COOLDOWN_SECONDS } from "@/constants/auth";
 import { ERROR_MESSAGES } from "@/constants/messages";
 import { ROUTES } from "@/constants/routes";
 import { AUDIT_ACTIONS, RECORD_STATUS } from "@/constants/status";
 import { ForbiddenError, RateLimitError, UnauthorizedError, ValidationError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { sendPasswordResetEmail } from "@/lib/mail";
-import { hashPassword, needsRehash, verifyPassword } from "@/lib/password";
+import { assertPasswordMeetsPolicy, hashPassword, needsRehash, verifyPassword } from "@/lib/password";
 import { hashPasswordResetToken, issuePasswordResetToken } from "@/lib/password-reset-token";
 import * as auditRepository from "@/repositories/audit-repository";
 import * as loginAttemptRepository from "@/repositories/login-attempt-repository";
 import * as passwordResetRepository from "@/repositories/password-reset-repository";
 import * as userRepository from "@/repositories/user-repository";
+import * as settingsService from "@/services/settings-service";
+import * as twoFactorService from "@/services/two-factor-service";
+import type { LoginTwoFactorChallenge } from "@/types/two-factor";
 import type { SessionClaims, SessionUser } from "@/types/session";
 
 /**
@@ -47,11 +50,21 @@ export interface SignInRequest {
   readonly userAgent: string | null;
 }
 
-export interface SignInResult {
+export interface SignInSessionResult {
+  readonly kind: "session";
   readonly claims: SessionClaims;
   readonly user: SessionUser;
+  readonly userId: number;
   readonly mustChangePassword: boolean;
 }
+
+export interface SignInTwoFactorResult {
+  readonly kind: "two_factor";
+  readonly challenge: LoginTwoFactorChallenge;
+  readonly mustChangePassword: boolean;
+}
+
+export type SignInResult = SignInSessionResult | SignInTwoFactorResult;
 
 function invalidCredentials(): UnauthorizedError {
   return new UnauthorizedError(ERROR_MESSAGES.INVALID_CREDENTIALS);
@@ -172,6 +185,28 @@ export async function signIn(request: SignInRequest): Promise<SignInResult> {
     throw new ForbiddenError("Your branch has been deactivated. Contact your administrator.");
   }
 
+  if (isTemporaryPasswordExpired(user.mustChangePassword, user.temporaryPasswordExpiresAt)) {
+    await loginAttemptRepository.record({
+      emailAttempted: user.email,
+      ipAddress,
+      successful: false,
+    });
+
+    await auditRepository.record({
+      action: AUDIT_ACTIONS.LOGIN_FAILED,
+      actorUserId: user.id,
+      actorEmail: user.email,
+      entityType: "User",
+      entityId: user.id,
+      entityPublicId: user.publicId,
+      summary: "Sign-in attempt with an expired temporary password",
+      ipAddress,
+      userAgent,
+    });
+
+    throw new ForbiddenError(ERROR_MESSAGES.TEMPORARY_PASSWORD_EXPIRED);
+  }
+
   // The password is unchanged, so this must not bump tokenVersion and log the
   // user out of their other sessions.
   if (needsRehash(user.passwordHash)) {
@@ -181,6 +216,21 @@ export async function signIn(request: SignInRequest): Promise<SignInResult> {
       // A failed upgrade must not fail the sign-in; the old hash still verifies.
       logger.warn("Password hash upgrade failed", { userId: user.id, error });
     }
+  }
+
+  if (twoFactorService.userRequiresTwoFactor(user)) {
+    const challenge = await twoFactorService.beginLoginChallenge({
+      userId: user.id,
+      email: user.email,
+      emailOtpEnabledAt: user.emailOtpEnabledAt,
+      totpEnabledAt: user.totpEnabledAt,
+    });
+
+    return {
+      kind: "two_factor",
+      challenge,
+      mustChangePassword: user.mustChangePassword,
+    };
   }
 
   await userRepository.recordSuccessfulLogin(user.id);
@@ -204,6 +254,7 @@ export async function signIn(request: SignInRequest): Promise<SignInResult> {
   });
 
   return {
+    kind: "session",
     claims: { userPublicId: user.publicId, tokenVersion: user.tokenVersion },
     user: {
       publicId: user.publicId,
@@ -223,14 +274,10 @@ export async function signIn(request: SignInRequest): Promise<SignInResult> {
         publicId: user.branch.publicId,
         code: user.branch.code,
         name: user.branch.name,
-        entity: {
-          publicId: user.branch.entity.publicId,
-          code: user.branch.entity.code,
-          name: user.branch.entity.name,
-        },
       },
     },
     mustChangePassword: user.mustChangePassword,
+    userId: user.id,
   };
 }
 
@@ -294,6 +341,9 @@ export async function changePassword(
       ],
     });
   }
+
+  const policy = await settingsService.getPasswordPolicy();
+  assertPasswordMeetsPolicy(request.newPassword, policy.policy);
 
   await userRepository.setPassword(request.userId, await hashPassword(request.newPassword));
   await passwordResetRepository.invalidateUnusedForUser(request.userId);
@@ -430,6 +480,9 @@ export async function resetPassword(input: ResetPasswordInput): Promise<void> {
       ],
     });
   }
+
+  const policy = await settingsService.getPasswordPolicy();
+  assertPasswordMeetsPolicy(input.newPassword, policy.policy);
 
   await userRepository.setPassword(user.id, await hashPassword(input.newPassword));
   await passwordResetRepository.markUsed(row.id);

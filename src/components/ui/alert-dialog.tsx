@@ -26,7 +26,7 @@ export function AlertDialogContent({
         data-slot="alert-dialog-content"
         className={cn(
           "fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 sm:max-w-md",
-          "border-border bg-card rounded-lg border p-5 shadow-lg outline-none",
+          "border-border bg-card rounded-xl border p-5 shadow-float outline-none",
           "data-[state=open]:animate-scale-in data-[state=closed]:animate-scale-out",
           className,
         )}

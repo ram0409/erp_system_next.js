@@ -20,11 +20,6 @@ export interface SessionUser {
     readonly publicId: string;
     readonly code: string;
     readonly name: string;
-    readonly entity: {
-      readonly publicId: string;
-      readonly code: string;
-      readonly name: string;
-    };
   };
 }
 
@@ -42,8 +37,6 @@ export interface ActorContext {
   readonly user: SessionUser;
   readonly permissions: ReadonlySet<PermissionKey>;
   readonly ipAddress: string | null;
-  /** Home legal entity of the signed-in user's assigned branch. */
-  readonly entityId: number;
 }
 
 /**

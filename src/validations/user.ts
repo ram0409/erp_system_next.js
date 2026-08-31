@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { RECORD_STATUS_VALUES } from "@/constants/status";
-import { passwordSchema, emailSchema } from "@/validations/auth";
+import { emailSchema } from "@/validations/auth";
 
 /**
  * Shared by the user form and the server actions. Assignment fields are public
@@ -48,16 +48,7 @@ const userFieldsSchema = z.object({
   rolePublicId: publicIdSchema,
 });
 
-export const createUserSchema = userFieldsSchema
-  .extend({
-    password: passwordSchema,
-    confirmPassword: z.string().min(1, "Confirm the temporary password"),
-    mustChangePassword: z.boolean(),
-  })
-  .refine((values) => values.password === values.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  });
+export const createUserSchema = userFieldsSchema;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 
 export const updateUserSchema = userFieldsSchema.extend({

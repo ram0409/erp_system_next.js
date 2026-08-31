@@ -58,11 +58,6 @@ export default async function DashboardPage() {
       actor,
       PERMISSIONS.BRANCHES.CREATE,
     ),
-    entities: moduleAccess(
-      navigationHasHref(menus, ROUTES.ENTITY),
-      actor,
-      PERMISSIONS.ENTITIES.CREATE,
-    ),
     settings: moduleAccess(navigationHasHref(menus, ROUTES.SETTINGS_GENERAL), actor),
     auditLogs: moduleAccess(navigationHasHref(menus, ROUTES.SETTINGS_AUDIT_LOGS), actor),
   };
@@ -71,7 +66,6 @@ export default async function DashboardPage() {
     users: capabilities.users.view,
     roles: capabilities.roles.view,
     branches: capabilities.branches.view,
-    entities: capabilities.entities.view,
     auditLogs: capabilities.auditLogs.view,
   });
 

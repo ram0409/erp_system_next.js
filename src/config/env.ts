@@ -43,6 +43,9 @@ const serverEnvSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM: z.string().optional(),
+
+  /** Bearer secret for `/api/cron/inactivity`. Optional in development. */
+  CRON_SECRET: z.string().min(16, "CRON_SECRET must be at least 16 characters").optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

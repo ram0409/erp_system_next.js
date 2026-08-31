@@ -1,8 +1,8 @@
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import {
+  Building2Icon,
   BuildingIcon,
-  LandmarkIcon,
   ShieldCheckIcon,
   SlidersHorizontalIcon,
   UserCogIcon,
@@ -51,15 +51,15 @@ export function DashboardQuickActions({ capabilities }: DashboardQuickActionsPro
       show: capabilities.branches.view,
     },
     {
-      href: ROUTES.ENTITY,
-      label: "Entity",
-      icon: LandmarkIcon,
-      show: capabilities.entities.view,
+      href: ROUTES.SETTINGS_GENERAL,
+      label: "General settings",
+      icon: SlidersHorizontalIcon,
+      show: capabilities.settings.view,
     },
     {
-      href: ROUTES.SETTINGS_GENERAL,
-      label: "Company information",
-      icon: SlidersHorizontalIcon,
+      href: ROUTES.SETTINGS_COMPANY,
+      label: "Company details",
+      icon: Building2Icon,
       show: capabilities.settings.view,
     },
   ].filter((action) => action.show);

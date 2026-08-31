@@ -59,7 +59,8 @@ function createClient(): PrismaClient {
 function clientHasCurrentModels(client: PrismaClient): boolean {
   return (
     typeof client.loginAttempt?.count === "function" &&
-    typeof client.businessEntity?.count === "function"
+    typeof client.businessEntity?.count === "function" &&
+    typeof client.twoFactorChallenge?.count === "function"
   );
 }
 

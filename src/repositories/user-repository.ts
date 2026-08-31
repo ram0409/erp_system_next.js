@@ -4,7 +4,7 @@ import {
   isPermissionKey,
   type PermissionKey,
 } from "@/constants/permissions";
-import { type RecordStatus } from "@/constants/status";
+import { RECORD_STATUS, type RecordStatus } from "@/constants/status";
 import { normalizeCode, normalizeEmail, normalizeKey } from "@/lib/normalize";
 import { prisma } from "@/lib/prisma";
 import { buildPaginatedResult } from "@/lib/pagination";
@@ -55,8 +55,6 @@ const ACTOR_SELECT = {
       name: true,
       status: true,
       deletedAt: true,
-      entityId: true,
-      entity: { select: { publicId: true, code: true, name: true } },
     },
   },
 } satisfies Prisma.UserSelect;
@@ -67,6 +65,9 @@ const CREDENTIAL_SELECT = {
   passwordHash: true,
   failedLoginAttempts: true,
   lockedUntil: true,
+  temporaryPasswordExpiresAt: true,
+  emailOtpEnabledAt: true,
+  totpEnabledAt: true,
 } satisfies Prisma.UserSelect;
 
 /** Safe for listings: no hash, no lockout internals. */
@@ -139,6 +140,7 @@ export interface CreateUserInput {
   readonly roleId: number;
   readonly status: RecordStatus;
   readonly mustChangePassword: boolean;
+  readonly temporaryPasswordExpiresAt?: Date | null;
 }
 
 export interface UpdateUserInput {
@@ -316,6 +318,7 @@ export function create(input: CreateUserInput): Promise<UserDetailRow> {
         roleId: input.roleId,
         status: input.status,
         mustChangePassword: input.mustChangePassword,
+        temporaryPasswordExpiresAt: input.temporaryPasswordExpiresAt ?? null,
         passwordChangedAt: new Date(),
       },
       select: DETAIL_SELECT,
@@ -394,6 +397,44 @@ export function recordSuccessfulLogin(userId: number): Promise<void> {
   });
 }
 
+const STALE_USER_SELECT = {
+  id: true,
+  publicId: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+} satisfies Prisma.UserSelect;
+
+export type StaleActiveUserRow = Prisma.UserGetPayload<{ select: typeof STALE_USER_SELECT }>;
+
+/**
+ * Active, non–Super Admin accounts whose last sign-in (or creation, if they
+ * have never signed in) is older than `cutoff`. Used by the inactivity policy.
+ */
+export function listStaleActiveUsers(options: {
+  readonly cutoff: Date;
+  readonly excludeUserId?: number;
+  readonly take: number;
+}): Promise<StaleActiveUserRow[]> {
+  return withPrismaErrors("user.listStaleActiveUsers", () =>
+    prisma.user.findMany({
+      where: {
+        ...NOT_DELETED,
+        status: RECORD_STATUS.ACTIVE,
+        role: { isSuperAdmin: false },
+        ...(options.excludeUserId === undefined ? {} : { id: { not: options.excludeUserId } }),
+        OR: [
+          { lastLoginAt: { lt: options.cutoff } },
+          { lastLoginAt: null, createdAt: { lt: options.cutoff } },
+        ],
+      },
+      select: STALE_USER_SELECT,
+      orderBy: { id: "asc" },
+      take: options.take,
+    }),
+  );
+}
+
 /**
  * Counts a failed attempt and locks the account once the threshold is reached.
  * The increment happens in the database rather than read-modify-write, so
@@ -438,6 +479,7 @@ export function setPassword(userId: number, passwordHash: string): Promise<void>
         passwordHash,
         passwordChangedAt: new Date(),
         mustChangePassword: false,
+        temporaryPasswordExpiresAt: null,
         tokenVersion: { increment: 1 },
         failedLoginAttempts: 0,
         lockedUntil: null,

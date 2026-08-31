@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
+import { toast } from "sonner";
 
 import { FormActions } from "@/components/forms/form-actions";
 import { FormField } from "@/components/forms/form-field";
@@ -19,13 +20,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { BRANCH_TYPE_OPTIONS, BRANCH_TYPES } from "@/constants/status";
-import { createBranchAction, updateBranchAction } from "@/features/branches/actions";
+import { createBranchAction, updateBranchAction, uploadBranchLogoAction } from "@/features/branches/actions";
+import { BranchLogoField } from "@/features/branches/components/branch-logo-field";
 import type { BranchDetail } from "@/types/branch";
-import type { EntityOption } from "@/types/entity";
 import { createBranchSchema, type CreateBranchInput } from "@/validations/branch";
 
 const EMPTY_VALUES: CreateBranchInput = {
-  entityPublicId: "",
   code: "",
   name: "",
   type: BRANCH_TYPES.REGIONAL_OFFICE,
@@ -42,7 +42,6 @@ const EMPTY_VALUES: CreateBranchInput = {
 
 function valuesFromDetail(detail: BranchDetail): CreateBranchInput {
   return {
-    entityPublicId: detail.entity.publicId,
     code: detail.code,
     name: detail.name,
     type: detail.type,
@@ -64,7 +63,6 @@ interface BranchFormDialogProps {
   open: boolean;
   mode: BranchFormMode;
   detail: BranchDetail | null;
-  entities: readonly EntityOption[];
   isLoading?: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: (message: string) => void;
@@ -74,30 +72,20 @@ export function BranchFormDialog({
   open,
   mode,
   detail,
-  entities,
   isLoading = false,
   onOpenChange,
   onSuccess,
 }: BranchFormDialogProps) {
   const readOnly = mode === "view";
   const [formError, setFormError] = useState<string | null>(null);
+  const [pendingLogoFile, setPendingLogoFile] = useState<File | null>(null);
+  const [logoOverride, setLogoOverride] = useState<string | null | undefined>(undefined);
+  const logoUrl = logoOverride === undefined ? (detail?.logoUrl ?? null) : logoOverride;
 
   const formValues = useMemo(
     () => (mode === "create" || !detail ? EMPTY_VALUES : valuesFromDetail(detail)),
     [mode, detail],
   );
-
-  const entityOptions = useMemo(() => {
-    const options = [...entities];
-    if (detail && !options.some((entity) => entity.publicId === detail.entity.publicId)) {
-      options.push({
-        publicId: detail.entity.publicId,
-        code: detail.entity.code,
-        name: `${detail.entity.name} (inactive)`,
-      });
-    }
-    return options;
-  }, [detail, entities]);
 
   const {
     register,
@@ -139,6 +127,16 @@ export function BranchFormDialog({
       return;
     }
 
+    if (mode === "create" && pendingLogoFile && result.data?.publicId) {
+      const logoResult = await uploadBranchLogoAction({
+        publicId: result.data.publicId,
+        file: pendingLogoFile,
+      });
+      if (!logoResult.success) {
+        toast.error(logoResult.message);
+      }
+    }
+
     onSuccess(result.message);
     onOpenChange(false);
   });
@@ -149,6 +147,8 @@ export function BranchFormDialog({
       onOpenChange={(next) => {
         if (!next) {
           setFormError(null);
+          setPendingLogoFile(null);
+          setLogoOverride(undefined);
         }
         onOpenChange(next);
       }}
@@ -194,34 +194,15 @@ export function BranchFormDialog({
           ) : null}
 
           <FormSection title="Identity">
-            <FormField htmlFor="entityPublicId" label="Entity" required error={errors.entityPublicId?.message}>
-              <Controller
-                name="entityPublicId"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value || undefined}
-                    onValueChange={field.onChange}
-                    disabled={readOnly || isSubmitting}
-                  >
-                    <SelectTrigger
-                      id="entityPublicId"
-                      aria-invalid={errors.entityPublicId ? true : undefined}
-                      aria-describedby={errors.entityPublicId ? "entityPublicId-error" : undefined}
-                    >
-                      <SelectValue placeholder="Select an entity" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {entityOptions.map((entity) => (
-                        <SelectItem key={entity.publicId} value={entity.publicId}>
-                          {entity.code} · {entity.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </FormField>
+            <BranchLogoField
+              key={`${mode}-${detail?.publicId ?? "new"}`}
+              branchName={formValues.name || detail?.name || ""}
+              logoUrl={logoUrl}
+              publicId={mode === "create" ? undefined : detail?.publicId}
+              canEdit={!readOnly}
+              onPendingFileChange={setPendingLogoFile}
+              onSaved={setLogoOverride}
+            />
             <FormField htmlFor="code" label="Code" required error={errors.code?.message}>
               <Input
                 id="code"

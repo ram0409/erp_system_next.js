@@ -1,7 +1,7 @@
 import "server-only";
 
 import { env } from "@/config/env";
-import { PASSWORD_RESET_COOLDOWN_SECONDS } from "@/constants/auth";
+import { PASSWORD_RESET_COOLDOWN_SECONDS, temporaryPasswordExpiresAt } from "@/constants/auth";
 import { EXPORT_MAX_ROWS, TABLE_QUERY_KEYS } from "@/constants/pagination";
 import { ERROR_MESSAGES, USER_MESSAGES } from "@/constants/messages";
 import {
@@ -13,7 +13,7 @@ import {
 } from "@/constants/status";
 import { ROUTES } from "@/constants/routes";
 import { duplicateFieldError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
-import { sendPasswordResetEmail } from "@/lib/mail";
+import { sendAccountWelcomeEmail, sendPasswordResetEmail } from "@/lib/mail";
 import {
   resolveAllowedValue,
   resolvePagination,
@@ -21,7 +21,7 @@ import {
   resolveSearchTerm,
   resolveSort,
 } from "@/lib/pagination";
-import { hashPassword } from "@/lib/password";
+import { generateTemporaryPassword, hashPassword } from "@/lib/password";
 import { issuePasswordResetToken } from "@/lib/password-reset-token";
 import { getWorkspaceScope } from "@/lib/workspace-scope";
 import * as auditRepository from "@/repositories/audit-repository";
@@ -29,6 +29,7 @@ import * as branchRepository from "@/repositories/branch-repository";
 import * as passwordResetRepository from "@/repositories/password-reset-repository";
 import * as roleRepository from "@/repositories/role-repository";
 import * as userRepository from "@/repositories/user-repository";
+import * as settingsService from "@/services/settings-service";
 import {
   USER_SORT_FIELDS,
   type UserDetailRow,
@@ -284,13 +285,20 @@ export async function listUsers(
 }
 
 export async function getAssignmentOptions(): Promise<UserAssignmentOptions> {
-  const scope = await getWorkspaceScope();
   const [branches, roles, superAdminCount] = await Promise.all([
-    branchRepository.listOptions(scope?.entityId),
+    branchRepository.listOptions(),
     roleRepository.listOptions(),
     userRepository.countSuperAdmins(),
   ]);
-  return { branches, roles, superAdminCount };
+  return {
+    branches: branches.map((branch) => ({
+      publicId: branch.publicId,
+      code: branch.code,
+      name: branch.name,
+    })),
+    roles,
+    superAdminCount,
+  };
 }
 
 export async function getUser(publicId: string): Promise<UserDetail> {
@@ -310,18 +318,22 @@ export async function createUser(
   await assertUniqueEmail(input.email);
   await assertUniqueEmployeeCode(input.employeeCode);
 
+  const temporaryPassword = generateTemporaryPassword(
+    (await settingsService.getPasswordPolicy()).policy,
+  );
   const created = await userRepository.create({
     employeeCode: input.employeeCode,
     firstName: input.firstName,
     lastName: input.lastName,
     email: input.email,
-    passwordHash: await hashPassword(input.password),
+    passwordHash: await hashPassword(temporaryPassword),
     phone: emptyToNull(input.phone),
     joinDate: parseJoinDate(input.joinDate),
     branchId: assignment.branchId,
     roleId: assignment.role.id,
     status: RECORD_STATUS.ACTIVE,
-    mustChangePassword: input.mustChangePassword,
+    mustChangePassword: true,
+    temporaryPasswordExpiresAt: temporaryPasswordExpiresAt(),
   });
 
   await writeAudit(actor, meta, {
@@ -336,6 +348,19 @@ export async function createUser(
       branch: created.branch.code,
     },
   });
+
+  const origin = env.AUTH_URL.replace(/\/$/, "");
+  const loginUrl = `${origin}${ROUTES.LOGIN}`;
+  const mailed = await sendAccountWelcomeEmail({
+    to: created.email,
+    recipientName: formatFullName(created.firstName, created.lastName),
+    temporaryPassword,
+    loginUrl,
+  });
+
+  if (!mailed) {
+    throw new ValidationError(USER_MESSAGES.WELCOME_EMAIL_FAILED);
+  }
 
   return toDetail(created);
 }

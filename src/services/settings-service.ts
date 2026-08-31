@@ -1,15 +1,31 @@
 import "server-only";
 
 import { SETTINGS_MESSAGES } from "@/constants/messages";
+import {
+  DEFAULT_PASSWORD_POLICY,
+  getPasswordPolicyRules,
+  resolvePasswordPolicyId,
+} from "@/constants/password-policy";
+import {
+  inactivityDeactivateLabel,
+  isInactivityDeactivateDays,
+} from "@/constants/security";
 import { AUDIT_ACTIONS } from "@/constants/status";
-import { duplicateFieldError, NotFoundError } from "@/lib/errors";
+import { duplicateFieldError, NotFoundError, ValidationError } from "@/lib/errors";
+import { buildLogoPublicPath, detectLogoExtension } from "@/lib/logo";
+import { deleteLogoFile, writeLogoFile } from "@/lib/logo-storage";
 import * as auditRepository from "@/repositories/audit-repository";
 import * as organizationRepository from "@/repositories/organization-repository";
 import type { OrganizationRow } from "@/repositories/organization-repository";
-import type { OrganizationSettings } from "@/types/settings";
+import * as inactivityService from "@/services/inactivity-service";
 import type { ActorContext } from "@/types/session";
+import type { CompanyBrand, OrganizationSettings, PasswordPolicySettings, SecurityPolicy } from "@/types/settings";
 import { formatFullName } from "@/utils/format";
-import type { UpdateOrganizationSettingsInput } from "@/validations/settings";
+import type {
+  UpdateOrganizationSettingsInput,
+  UpdatePasswordPolicyInput,
+  UpdateSecurityPolicyInput,
+} from "@/validations/settings";
 import type { Prisma } from "@generated/prisma/client";
 
 const ENTITY_TYPE = "Organization";
@@ -37,6 +53,7 @@ function toSettings(row: OrganizationRow): OrganizationSettings {
     state: row.state,
     postalCode: row.postalCode,
     country: row.country,
+    logoUrl: row.logoPath,
     status: row.status,
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -79,6 +96,15 @@ export async function getOrganizationSettings(): Promise<OrganizationSettings> {
   return toSettings(await requireOrganization());
 }
 
+/** Sidebar brand. Safe to call from the dashboard layout for every signed-in user. */
+export async function getCompanyBrand(): Promise<CompanyBrand> {
+  const row = await organizationRepository.findPrimary();
+  return {
+    name: row?.name ?? null,
+    logoUrl: row?.logoPath ?? null,
+  };
+}
+
 export async function updateOrganizationSettings(
   input: UpdateOrganizationSettingsInput,
   actor: ActorContext,
@@ -116,4 +142,142 @@ export async function updateOrganizationSettings(
   });
 
   return toSettings(updated);
+}
+
+export async function uploadCompanyLogo(
+  file: File,
+  actor: ActorContext,
+  meta: AuditMeta = {},
+): Promise<{ logoUrl: string }> {
+  const existing = await requireOrganization();
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const extension = detectLogoExtension(bytes, file.type);
+
+  if (!extension) {
+    throw new ValidationError(SETTINGS_MESSAGES.LOGO_INVALID, {
+      fieldErrors: [{ field: "file", message: SETTINGS_MESSAGES.LOGO_INVALID }],
+    });
+  }
+
+  const publicPath = buildLogoPublicPath(existing.publicId, extension, Date.now());
+  await writeLogoFile(publicPath, bytes);
+
+  try {
+    await organizationRepository.updateLogoPath(existing.id, publicPath);
+  } catch (error) {
+    await deleteLogoFile(publicPath);
+    throw error;
+  }
+
+  if (existing.logoPath && existing.logoPath !== publicPath) {
+    await deleteLogoFile(existing.logoPath);
+  }
+
+  await writeAudit(actor, meta, {
+    entityId: existing.id,
+    entityPublicId: existing.publicId,
+    summary: `Updated company logo for ${existing.name}`,
+  });
+
+  return { logoUrl: publicPath };
+}
+
+export async function removeCompanyLogo(
+  actor: ActorContext,
+  meta: AuditMeta = {},
+): Promise<{ logoUrl: null }> {
+  const existing = await requireOrganization();
+
+  await organizationRepository.updateLogoPath(existing.id, null);
+  await deleteLogoFile(existing.logoPath);
+
+  await writeAudit(actor, meta, {
+    entityId: existing.id,
+    entityPublicId: existing.publicId,
+    summary: `Removed company logo for ${existing.name}`,
+  });
+
+  return { logoUrl: null };
+}
+
+function toSecurityPolicy(row: OrganizationRow): SecurityPolicy {
+  const days = row.inactivityDeactivateAfterDays;
+  return {
+    inactivityDeactivateAfterDays:
+      days !== null && isInactivityDeactivateDays(days) ? days : null,
+  };
+}
+
+export async function getSecurityPolicy(): Promise<SecurityPolicy> {
+  return toSecurityPolicy(await requireOrganization());
+}
+
+export async function updateSecurityPolicy(
+  input: UpdateSecurityPolicyInput,
+  actor: ActorContext,
+  meta: AuditMeta = {},
+): Promise<SecurityPolicy> {
+  const existing = await requireOrganization();
+  const previous = toSecurityPolicy(existing);
+  const nextDays = input.inactivityDeactivateAfterDays;
+
+  const updated = await organizationRepository.updateInactivityDeactivateAfterDays(
+    existing.id,
+    nextDays,
+  );
+
+  const previousLabel =
+    previous.inactivityDeactivateAfterDays === null
+      ? "Off"
+      : inactivityDeactivateLabel(previous.inactivityDeactivateAfterDays);
+  const nextLabel = nextDays === null ? "Off" : inactivityDeactivateLabel(nextDays);
+
+  await writeAudit(actor, meta, {
+    entityId: updated.id,
+    entityPublicId: updated.publicId,
+    summary: `Updated inactivity policy from ${previousLabel} to ${nextLabel}`,
+    changes: {
+      inactivityDeactivateAfterDays: {
+        from: previous.inactivityDeactivateAfterDays,
+        to: nextDays,
+      },
+    },
+  });
+
+  await inactivityService.applyInactivityPolicy({ actor });
+
+  return toSecurityPolicy(updated);
+}
+
+function toPasswordPolicy(row: OrganizationRow): PasswordPolicySettings {
+  return { policy: resolvePasswordPolicyId(row.passwordPolicy) };
+}
+
+export async function getPasswordPolicy(): Promise<PasswordPolicySettings> {
+  const row = await organizationRepository.findPrimary();
+  if (!row) {
+    return { policy: DEFAULT_PASSWORD_POLICY };
+  }
+  return toPasswordPolicy(row);
+}
+
+export async function updatePasswordPolicy(
+  input: UpdatePasswordPolicyInput,
+  actor: ActorContext,
+  meta: AuditMeta = {},
+): Promise<PasswordPolicySettings> {
+  const existing = await requireOrganization();
+  const previous = toPasswordPolicy(existing);
+  const updated = await organizationRepository.updatePasswordPolicy(existing.id, input.policy);
+
+  await writeAudit(actor, meta, {
+    entityId: updated.id,
+    entityPublicId: updated.publicId,
+    summary: `Updated password policy from ${getPasswordPolicyRules(previous.policy).label} to ${getPasswordPolicyRules(input.policy).label}`,
+    changes: {
+      passwordPolicy: { from: previous.policy, to: input.policy },
+    },
+  });
+
+  return toPasswordPolicy(updated);
 }

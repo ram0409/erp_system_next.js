@@ -1,6 +1,5 @@
 import {
   BuildingIcon,
-  LandmarkIcon,
   UserCogIcon,
   UsersIcon,
 } from "lucide-react";
@@ -89,17 +88,6 @@ export function DashboardWorkspace({
           tone: "muted" as const,
         }
       : null,
-    capabilities.entities.view
-      ? {
-          key: "entities",
-          label: "Entities",
-          value: overview.entities.total,
-          hint: `${formatNumber(overview.entities.active)} active · ${formatNumber(overview.entities.inactive)} inactive`,
-          icon: LandmarkIcon,
-          href: ROUTES.ENTITY,
-          tone: "success" as const,
-        }
-      : null,
   ].filter((card) => card !== null);
 
   return (
@@ -113,7 +101,7 @@ export function DashboardWorkspace({
           {overview.organizationName
             ? `Snapshot for ${overview.organizationName}.`
             : "Snapshot for the organisation."}{" "}
-          Figures follow the Entity and Branch in the header, and only the menus you can open.
+          Figures follow the Branch in the header, and only the menus you can open.
         </p>
         <div className="mt-4">
           <DashboardQuickActions capabilities={capabilities} />
@@ -121,7 +109,7 @@ export function DashboardWorkspace({
       </section>
 
       {kpiCards.length > 0 ? (
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {kpiCards.map((card) => (
             <DashboardKpiCard
               key={card.key}

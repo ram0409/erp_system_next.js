@@ -65,6 +65,24 @@ export function setModuleGranted(
   return [...next];
 }
 
+export function catalogKeysForModules(
+  modules: readonly PermissionModuleDefinition[],
+): readonly PermissionKey[] {
+  return modules.flatMap((definition) => catalogKeysForModule(definition));
+}
+
+export function setGroupGranted(
+  keys: readonly string[],
+  modules: readonly PermissionModuleDefinition[],
+  granted: boolean,
+): string[] {
+  let next = keys;
+  for (const definition of modules) {
+    next = setModuleGranted(next, definition, granted);
+  }
+  return [...next];
+}
+
 export function setAllGranted(granted: boolean): string[] {
   return granted ? [...ALL_PERMISSION_KEYS] : [];
 }

@@ -41,7 +41,6 @@ import { BranchFormDialog, type BranchFormMode } from "@/features/branches/compo
 import { useTableParams } from "@/hooks/use-table-params";
 import { cn } from "@/lib/utils";
 import type { BranchDetail, BranchListItem } from "@/types/branch";
-import type { EntityOption } from "@/types/entity";
 import type { PaginationMeta } from "@/types/pagination";
 import { EMPTY_VALUE_PLACEHOLDER, formatDate } from "@/utils/format";
 
@@ -50,12 +49,10 @@ interface BranchesWorkspaceProps {
   readonly meta: PaginationMeta;
   readonly isFiltered: boolean;
   readonly actorBranchPublicId: string;
-  readonly entities: readonly EntityOption[];
   readonly exportFilters: {
     readonly search?: string;
     readonly status?: BranchListItem["status"];
     readonly type?: BranchListItem["type"];
-    readonly entityPublicId?: string;
   };
 }
 
@@ -79,7 +76,6 @@ export function BranchesWorkspace({
   meta,
   isFiltered,
   actorBranchPublicId,
-  entities,
   exportFilters,
 }: BranchesWorkspaceProps) {
   const router = useRouter();
@@ -146,7 +142,6 @@ export function BranchesWorkspace({
         ...(exportFilters.search ? { search: exportFilters.search } : {}),
         ...(exportFilters.status ? { status: exportFilters.status } : {}),
         ...(exportFilters.type ? { type: exportFilters.type } : {}),
-        ...(exportFilters.entityPublicId ? { entityPublicId: exportFilters.entityPublicId } : {}),
       });
 
       if (!result.success) {
@@ -182,13 +177,20 @@ export function BranchesWorkspace({
       {
         id: "name",
         header: <SortableColumnHeader field="name" label="Name" />,
-        cell: (row) => row.name,
-      },
-      {
-        id: "entity",
-        header: "Entity",
-        cell: (row) => row.entity.name,
-        hideBelowMd: true,
+        cell: (row) => (
+          <span className="flex min-w-0 items-center gap-2">
+            {row.logoUrl ? (
+              // User-uploaded files in /public/uploads; next/image is not used for local blobs.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={row.logoUrl}
+                alt=""
+                className="size-7 shrink-0 rounded-md object-cover"
+              />
+            ) : null}
+            <span className="truncate">{row.name}</span>
+          </span>
+        ),
       },
       {
         id: "type",
@@ -302,7 +304,7 @@ export function BranchesWorkspace({
     <>
       <Card className={cn(isPending && "opacity-70")}>
         <FilterBar hasActiveFilters={isFiltered}>
-          <SearchInput placeholder="Search code, name, city or entity" label="Search branches" />
+          <SearchInput placeholder="Search code, name or city" label="Search branches" />
           <FilterSelect
             paramKey={TABLE_QUERY_KEYS.STATUS}
             label="Status"
@@ -350,7 +352,6 @@ export function BranchesWorkspace({
         open={formOpen}
         mode={formMode}
         detail={detail}
-        entities={entities}
         isLoading={detailPending}
         onOpenChange={setFormOpen}
         onSuccess={handleFormSuccess}

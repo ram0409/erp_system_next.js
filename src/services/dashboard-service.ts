@@ -8,7 +8,6 @@ import { foldDistribution } from "@/lib/dashboard-distribution";
 import { getWorkspaceScope } from "@/lib/workspace-scope";
 import * as auditRepository from "@/repositories/audit-repository";
 import * as branchRepository from "@/repositories/branch-repository";
-import * as entityRepository from "@/repositories/entity-repository";
 import * as organizationRepository from "@/repositories/organization-repository";
 import * as roleRepository from "@/repositories/role-repository";
 import * as userRepository from "@/repositories/user-repository";
@@ -34,15 +33,13 @@ function emptyWhen<T>(enabled: boolean, load: () => Promise<T>, fallback: T): Pr
 export async function getOverview(modules: DashboardOverviewModules): Promise<DashboardOverview> {
   const scope = await getWorkspaceScope();
   const branchId = scope?.branchId;
-  const entityId = scope?.entityId;
 
-  const [organization, userStatus, roleStatus, branchStatus, entityStatus, byBranch, byRole, activity] =
+  const [organization, userStatus, roleStatus, branchStatus, byBranch, byRole, activity] =
     await Promise.all([
       organizationRepository.findPrimary(),
       emptyWhen(modules.users, () => userRepository.countByStatus(branchId), []),
       emptyWhen(modules.roles, () => roleRepository.countByStatus(), []),
-      emptyWhen(modules.branches, () => branchRepository.countByStatus(entityId), []),
-      emptyWhen(modules.entities, () => entityRepository.countByStatus(), []),
+      emptyWhen(modules.branches, () => branchRepository.countByStatus(), []),
       emptyWhen(modules.users, () => userRepository.countGroupedByBranch(branchId), []),
       emptyWhen(modules.users, () => userRepository.countGroupedByRole(branchId), []),
       emptyWhen(
@@ -72,7 +69,6 @@ export async function getOverview(modules: DashboardOverviewModules): Promise<Da
     users: modules.users ? toCount(userStatus) : EMPTY_COUNT,
     roles: modules.roles ? toCount(roleStatus) : EMPTY_COUNT,
     branches: modules.branches ? toCount(branchStatus) : EMPTY_COUNT,
-    entities: modules.entities ? toCount(entityStatus) : EMPTY_COUNT,
     usersByBranch: foldDistribution(usersByBranch, DASHBOARD_CHART_LIMIT),
     usersByRole: foldDistribution(usersByRole, DASHBOARD_CHART_LIMIT),
     activity: activity.map((row, index) => ({

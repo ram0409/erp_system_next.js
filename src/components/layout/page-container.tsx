@@ -10,7 +10,7 @@ interface PageContainerProps {
 /** Consistent page gutters and max width for every administration screen. */
 export function PageContainer({ children, className }: PageContainerProps) {
   return (
-    <div className={cn("mx-auto w-full max-w-[100rem] space-y-5 px-4 py-5 sm:px-6", className)}>
+    <div className={cn("mx-auto w-full max-w-[100rem] space-y-6 px-4 py-6 sm:px-6 lg:px-8", className)}>
       {children}
     </div>
   );

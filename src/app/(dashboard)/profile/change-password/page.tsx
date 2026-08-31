@@ -5,11 +5,15 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChangePasswordForm } from "@/features/auth/components/change-password-form";
 import { requiresPasswordChange } from "@/lib/session";
+import { getPasswordPolicy } from "@/services/settings-service";
 
 export const metadata: Metadata = { title: "Change password" };
 
 export default async function ChangePasswordPage() {
-  const forced = await requiresPasswordChange();
+  const [forced, passwordPolicy] = await Promise.all([
+    requiresPasswordChange(),
+    getPasswordPolicy(),
+  ]);
 
   return (
     <PageContainer className="flex min-h-[calc(100dvh-3.5rem)] items-center justify-center">
@@ -21,7 +25,7 @@ export default async function ChangePasswordPage() {
         />
         <Card>
           <CardContent className="px-6 py-6 sm:px-8 sm:py-7">
-            <ChangePasswordForm forced={forced} />
+            <ChangePasswordForm forced={forced} policy={passwordPolicy.policy} />
           </CardContent>
         </Card>
       </div>

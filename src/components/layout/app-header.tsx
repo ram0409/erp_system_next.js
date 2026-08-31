@@ -18,11 +18,12 @@ import type { WorkspaceSwitcher } from "@/types/workspace";
 interface AppHeaderProps {
   user: SessionUser;
   navItems: readonly NavItem[];
-  appName: string;
+  companyName: string;
+  logoUrl?: string | null;
   workspace: WorkspaceSwitcher;
 }
 
-export function AppHeader({ user, navItems, appName, workspace }: AppHeaderProps) {
+export function AppHeader({ user, navItems, companyName, logoUrl, workspace }: AppHeaderProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
@@ -37,8 +38,8 @@ export function AppHeader({ user, navItems, appName, workspace }: AppHeaderProps
   };
 
   return (
-    <header className="border-border bg-background sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b px-3 sm:px-4">
-      <MobileNav items={navItems} appName={appName} />
+    <header className="border-border/80 bg-background/80 supports-backdrop-filter:bg-background/70 sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b px-3 backdrop-blur-md sm:px-4">
+      <MobileNav items={navItems} companyName={companyName} logoUrl={logoUrl} />
 
       <div className="min-w-0 flex-1">
         <Breadcrumbs />

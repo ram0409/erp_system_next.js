@@ -1,8 +1,8 @@
 "use client";
 
-import { BuildingIcon, LandmarkIcon } from "lucide-react";
+import { BuildingIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useTransition } from "react";
+import { useTransition } from "react";
 import { toast } from "sonner";
 
 import {
@@ -23,22 +23,13 @@ export function WorkspaceSwitch({ workspace }: WorkspaceSwitchProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const branchesForEntity = useMemo(
-    () =>
-      workspace.branches.filter((branch) => branch.entityPublicId === workspace.selected.entityPublicId),
-    [workspace.branches, workspace.selected.entityPublicId],
-  );
-
-  function apply(entityPublicId: string, branchPublicId: string) {
-    if (
-      entityPublicId === workspace.selected.entityPublicId &&
-      branchPublicId === workspace.selected.branchPublicId
-    ) {
+  function apply(branchPublicId: string) {
+    if (branchPublicId === workspace.selected.branchPublicId) {
       return;
     }
 
     startTransition(async () => {
-      const result = await setWorkspaceAction({ entityPublicId, branchPublicId });
+      const result = await setWorkspaceAction({ branchPublicId });
       if (!result.success) {
         toast.error(result.message);
         return;
@@ -47,56 +38,15 @@ export function WorkspaceSwitch({ workspace }: WorkspaceSwitchProps) {
     });
   }
 
-  function handleEntityChange(entityPublicId: string) {
-    const currentStillValid = workspace.branches.some(
-      (branch) =>
-        branch.publicId === workspace.selected.branchPublicId &&
-        branch.entityPublicId === entityPublicId,
-    );
-    const nextBranch = currentStillValid
-      ? workspace.selected.branchPublicId
-      : (workspace.branches.find((branch) => branch.entityPublicId === entityPublicId)?.publicId ??
-        workspace.selected.branchPublicId);
-    apply(entityPublicId, nextBranch);
-  }
-
   return (
     <div className="flex min-w-0 items-center gap-1.5">
-      <label className="sr-only" htmlFor="workspace-entity">
-        Entity
-      </label>
-      <Select
-        value={workspace.selected.entityPublicId}
-        onValueChange={handleEntityChange}
-        disabled={isPending || workspace.entities.length === 0}
-      >
-        <SelectTrigger
-          id="workspace-entity"
-          size="sm"
-          className="bg-background h-8 w-[7.5rem] gap-1.5 sm:w-44"
-          aria-label="Entity"
-        >
-          <LandmarkIcon className="text-muted-foreground size-3.5 shrink-0" aria-hidden="true" />
-          <SelectValue placeholder="Entity" />
-        </SelectTrigger>
-        <SelectContent>
-          {workspace.entities.map((entity) => (
-            <SelectItem key={entity.publicId} value={entity.publicId}>
-              {entity.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
       <label className="sr-only" htmlFor="workspace-branch">
         Branch
       </label>
       <Select
         value={workspace.selected.branchPublicId}
-        onValueChange={(branchPublicId) =>
-          apply(workspace.selected.entityPublicId, branchPublicId)
-        }
-        disabled={isPending || branchesForEntity.length === 0}
+        onValueChange={apply}
+        disabled={isPending || workspace.branches.length === 0}
       >
         <SelectTrigger
           id="workspace-branch"
@@ -108,9 +58,20 @@ export function WorkspaceSwitch({ workspace }: WorkspaceSwitchProps) {
           <SelectValue placeholder="Branch" />
         </SelectTrigger>
         <SelectContent>
-          {branchesForEntity.map((branch) => (
+          {workspace.branches.map((branch) => (
             <SelectItem key={branch.publicId} value={branch.publicId}>
-              {branch.name}
+              <span className="flex min-w-0 items-center gap-2">
+                {branch.logoUrl ? (
+                  // User-uploaded files in /public/uploads; next/image is not used for local blobs.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={branch.logoUrl}
+                    alt=""
+                    className="size-4 shrink-0 rounded-sm object-cover"
+                  />
+                ) : null}
+                <span className="truncate">{branch.name}</span>
+              </span>
             </SelectItem>
           ))}
         </SelectContent>

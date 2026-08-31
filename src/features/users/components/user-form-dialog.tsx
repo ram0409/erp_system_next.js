@@ -1,7 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { EyeIcon, EyeOffIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm, type Resolver } from "react-hook-form";
 
@@ -10,7 +9,6 @@ import { FormField } from "@/components/forms/form-field";
 import { FormSection } from "@/components/forms/form-section";
 import { FormDialog } from "@/components/shared/form-dialog";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -32,9 +30,6 @@ const EMPTY_VALUES: CreateUserInput = {
   joinDate: "",
   branchPublicId: "",
   rolePublicId: "",
-  password: "",
-  confirmPassword: "",
-  mustChangePassword: true,
 };
 
 const editSchema = updateUserSchema.omit({ publicId: true });
@@ -50,7 +45,6 @@ function valuesFromDetail(detail: UserDetail): CreateUserInput {
     joinDate: detail.joinDate ? detail.joinDate.slice(0, 10) : "",
     branchPublicId: detail.branch.publicId.trim(),
     rolePublicId: detail.role.publicId.trim(),
-    mustChangePassword: detail.mustChangePassword,
   };
 }
 
@@ -81,8 +75,6 @@ export function UserFormDialog({
 }: UserFormDialogProps) {
   const readOnly = mode === "view";
   const [formError, setFormError] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const formValues = useMemo(
     () => (mode === "create" || !detail ? EMPTY_VALUES : valuesFromDetail(detail)),
@@ -181,15 +173,13 @@ export function UserFormDialog({
       onOpenChange={(next) => {
         if (!next) {
           setFormError(null);
-          setShowPassword(false);
-          setShowConfirmPassword(false);
         }
         onOpenChange(next);
       }}
       title={title}
       description={
         mode === "create"
-          ? "The temporary password is never stored in plain text. Ask the person to sign in and change it."
+          ? "A temporary password is generated and emailed with the sign-in link. It expires in 1 day. The person must change it on first sign-in."
           : mode === "edit"
             ? "Password is not edited here. Use Send password reset from the user list."
             : undefined
@@ -390,98 +380,6 @@ export function UserFormDialog({
               />
             </FormField>
           </FormSection>
-
-          {mode === "create" ? (
-            <FormSection title="Temporary password">
-              <FormField
-                htmlFor="password"
-                label="Password"
-                required
-                error={errors.password?.message}
-              >
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="new-password"
-                    placeholder="Enter the password"
-                    className="pr-11"
-                    disabled={isSubmitting}
-                    aria-invalid={errors.password ? true : undefined}
-                    {...register("password")}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground hover:text-foreground absolute top-1/2 right-0.5 size-9 -translate-y-1/2"
-                    onClick={() => setShowPassword((visible) => !visible)}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                    aria-pressed={showPassword}
-                    disabled={isSubmitting}
-                  >
-                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                  </Button>
-                </div>
-              </FormField>
-              <FormField
-                htmlFor="confirmPassword"
-                label="Confirm password"
-                required
-                error={errors.confirmPassword?.message}
-              >
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    autoComplete="new-password"
-                    placeholder="Confirm the password"
-                    className="pr-11"
-                    disabled={isSubmitting}
-                    aria-invalid={errors.confirmPassword ? true : undefined}
-                    {...register("confirmPassword")}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground hover:text-foreground absolute top-1/2 right-0.5 size-9 -translate-y-1/2"
-                    onClick={() => setShowConfirmPassword((visible) => !visible)}
-                    aria-label={
-                      showConfirmPassword ? "Hide confirm password" : "Show confirm password"
-                    }
-                    aria-pressed={showConfirmPassword}
-                    disabled={isSubmitting}
-                  >
-                    {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
-                  </Button>
-                </div>
-              </FormField>
-              <div className="flex items-start gap-2 sm:col-span-2">
-                <Controller
-                  name="mustChangePassword"
-                  control={control}
-                  render={({ field }) => (
-                    <Checkbox
-                      id="mustChangePassword"
-                      checked={field.value}
-                      onCheckedChange={(value) => field.onChange(value === true)}
-                      disabled={isSubmitting}
-                      className="mt-0.5"
-                    />
-                  )}
-                />
-                <div className="space-y-0.5">
-                  <label htmlFor="mustChangePassword" className="text-sm font-medium">
-                    Require password change at first sign-in
-                  </label>
-                  <p className="text-muted-foreground text-xs">
-                    Recommended for accounts created by an administrator.
-                  </p>
-                </div>
-              </div>
-            </FormSection>
-          ) : null}
         </form>
       )}
     </FormDialog>

@@ -22,7 +22,7 @@ export function DropdownMenuContent({
         sideOffset={sideOffset}
         align={align}
         className={cn(
-          "border-border bg-popover text-popover-foreground z-50 min-w-[11rem] overflow-hidden rounded-md border p-1 shadow-lg",
+          "border-border bg-popover text-popover-foreground z-50 min-w-[11rem] overflow-hidden rounded-xl border p-1 shadow-float",
           "data-[state=open]:animate-slide-in-top",
           className,
         )}

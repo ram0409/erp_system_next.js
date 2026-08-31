@@ -16,10 +16,12 @@ export function PageHeader({ title, description, actions, className }: PageHeade
       className={cn("flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between", className)}
     >
       <div className="min-w-0 space-y-1">
-        <h1 className="text-foreground truncate text-[1.5rem] font-semibold tracking-tight">
+        <h1 className="text-foreground truncate text-[1.625rem] font-semibold tracking-tight">
           {title}
         </h1>
-        {description ? <p className="text-muted-foreground text-sm">{description}</p> : null}
+        {description ? (
+          <p className="text-muted-foreground max-w-2xl text-sm leading-relaxed">{description}</p>
+        ) : null}
       </div>
       {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
     </header>

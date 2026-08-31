@@ -25,6 +25,9 @@ const SELECT = {
   state: true,
   postalCode: true,
   country: true,
+  logoPath: true,
+  inactivityDeactivateAfterDays: true,
+  passwordPolicy: true,
   status: true,
   updatedAt: true,
 } satisfies Prisma.OrganizationSelect;
@@ -95,4 +98,43 @@ export function isCodeTaken(code: string, excludeId?: number): Promise<boolean> 
     });
     return row !== null;
   });
+}
+
+export function updateInactivityDeactivateAfterDays(
+  id: number,
+  inactivityDeactivateAfterDays: number | null,
+): Promise<OrganizationRow> {
+  return withPrismaErrors("organization.updateInactivityDeactivateAfterDays", () =>
+    prisma.organization.update({
+      where: { id },
+      data: { inactivityDeactivateAfterDays },
+      select: SELECT,
+    }),
+  );
+}
+
+export function updatePasswordPolicy(
+  id: number,
+  passwordPolicy: string,
+): Promise<OrganizationRow> {
+  return withPrismaErrors("organization.updatePasswordPolicy", () =>
+    prisma.organization.update({
+      where: { id },
+      data: { passwordPolicy },
+      select: SELECT,
+    }),
+  );
+}
+
+export function updateLogoPath(
+  id: number,
+  logoPath: string | null,
+): Promise<{ logoPath: string | null }> {
+  return withPrismaErrors("organization.updateLogoPath", () =>
+    prisma.organization.update({
+      where: { id },
+      data: { logoPath },
+      select: { logoPath: true },
+    }),
+  );
 }

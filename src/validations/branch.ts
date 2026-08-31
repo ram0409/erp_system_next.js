@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 import { BRANCH_TYPE_VALUES, RECORD_STATUS_VALUES } from "@/constants/status";
+import { SETTINGS_MESSAGES } from "@/constants/messages";
+import { logoRejectionMessage } from "@/lib/logo";
 
 /**
  * Shared by the branch form and the server actions. Empty optional strings are
@@ -50,7 +52,6 @@ const optionalPhoneField = optionalText(32, "Phone number is too long").refine(
 );
 
 export const branchFieldsSchema = z.object({
-  entityPublicId: z.string().trim().min(1, "Select an entity").max(32, "Select an entity"),
   code: branchCodeSchema,
   name: branchNameSchema,
   type: z.enum(BRANCH_TYPE_VALUES),
@@ -87,6 +88,35 @@ export const exportBranchesSchema = z.object({
   search: z.string().trim().max(120).optional(),
   status: z.enum(RECORD_STATUS_VALUES).optional(),
   type: z.enum(BRANCH_TYPE_VALUES).optional(),
-  entityPublicId: publicIdSchema.optional(),
 });
 export type ExportBranchesInput = z.infer<typeof exportBranchesSchema>;
+
+function isFileLike(value: unknown): value is File {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as File).arrayBuffer === "function" &&
+    typeof (value as File).size === "number" &&
+    typeof (value as File).type === "string"
+  );
+}
+
+const logoFileSchema = z
+  .custom<File>(isFileLike, { message: SETTINGS_MESSAGES.LOGO_REQUIRED })
+  .superRefine((file, context) => {
+    const message = logoRejectionMessage(file);
+    if (message) {
+      context.addIssue({ code: "custom", message, path: ["file"] });
+    }
+  });
+
+export const uploadBranchLogoSchema = z.object({
+  publicId: publicIdSchema,
+  file: logoFileSchema,
+});
+
+export type UploadBranchLogoInput = z.infer<typeof uploadBranchLogoSchema>;
+
+export const removeBranchLogoSchema = z.object({
+  publicId: publicIdSchema,
+});

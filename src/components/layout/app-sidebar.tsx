@@ -4,6 +4,7 @@ import { PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
 import Link from "next/link";
 
 import { NavList } from "@/components/layout/nav-list";
+import { SidebarBrandMark } from "@/components/layout/sidebar-brand-mark";
 import { Button } from "@/components/ui/button";
 import type { NavItem } from "@/constants/navigation";
 import { ROUTES } from "@/constants/routes";
@@ -15,12 +16,12 @@ const COLLAPSE_STORAGE_KEY = "erp.sidebar.collapsed";
 interface AppSidebarProps {
   /** Already filtered by permission on the server. */
   items: readonly NavItem[];
-  appName: string;
+  companyName: string;
+  logoUrl?: string | null;
 }
 
-export function AppSidebar({ items, appName }: AppSidebarProps) {
+export function AppSidebar({ items, companyName, logoUrl }: AppSidebarProps) {
   const [collapsed, setCollapsed] = usePersistedBoolean(COLLAPSE_STORAGE_KEY, false);
-  const mark = appName.trim().charAt(0).toUpperCase() || "E";
 
   return (
     <aside
@@ -44,14 +45,11 @@ export function AppSidebar({ items, appName }: AppSidebarProps) {
           href={ROUTES.DASHBOARD}
           className="text-sidebar-accent-foreground focus-visible:ring-sidebar-accent-foreground/50 group/brand flex min-w-0 items-center gap-2.5 rounded-md focus-visible:ring-2 focus-visible:outline-none"
         >
-          <span
-            className="bg-sidebar-active text-sidebar-active-foreground flex size-8 shrink-0 items-center justify-center rounded-md text-xs font-semibold tracking-wide shadow-[0_0_16px_color-mix(in_oklch,var(--sidebar-active)_45%,transparent)] transition-transform duration-200 group-hover/brand:scale-105"
-            aria-hidden="true"
-          >
-            {mark}
-          </span>
-          {collapsed ? <span className="sr-only">{appName}</span> : (
-            <span className="truncate text-sm font-semibold tracking-tight">{appName}</span>
+          <SidebarBrandMark companyName={companyName} logoUrl={logoUrl} />
+          {collapsed ? (
+            <span className="sr-only">{companyName}</span>
+          ) : (
+            <span className="truncate text-sm font-semibold tracking-tight">{companyName}</span>
           )}
         </Link>
         {collapsed ? null : (

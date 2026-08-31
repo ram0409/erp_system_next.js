@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDownIcon, KeyRoundIcon, LogOutIcon, UserIcon } from "lucide-react";
+import { ChevronDownIcon, LogOutIcon, ShieldIcon, UserIcon } from "lucide-react";
 import Link from "next/link";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -64,9 +64,9 @@ export function UserMenu({ user, onSignOut }: UserMenuProps) {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link href={ROUTES.CHANGE_PASSWORD}>
-            <KeyRoundIcon />
-            Change password
+          <Link href={ROUTES.SETTINGS_SECURITY}>
+            <ShieldIcon />
+            Security
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />

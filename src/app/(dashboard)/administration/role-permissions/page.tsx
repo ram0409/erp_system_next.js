@@ -51,7 +51,7 @@ export default async function RolePermissionsPage({
     <PageContainer>
       <PageHeader
         title="Role Permissions"
-        description="Grant or revoke module permissions for each role."
+        description="Open a module to grant actions on its sub-modules."
       />
       <RolePermissionsWorkspace
         key={matrix.selected?.publicId ?? "empty"}
