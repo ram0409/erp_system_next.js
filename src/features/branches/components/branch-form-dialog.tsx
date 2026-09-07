@@ -22,6 +22,13 @@ import {
 import { BRANCH_TYPE_OPTIONS, BRANCH_TYPES } from "@/constants/status";
 import { createBranchAction, updateBranchAction, uploadBranchLogoAction } from "@/features/branches/actions";
 import { BranchLogoField } from "@/features/branches/components/branch-logo-field";
+import {
+  PHONE_DIGIT_COUNT,
+  enterPlaceholder,
+  phoneRegisterOptions,
+  selectPlaceholder,
+} from "@/lib/form-fields";
+import { applyServerFieldErrors } from "@/lib/form-action-errors";
 import type { BranchDetail } from "@/types/branch";
 import { createBranchSchema, type CreateBranchInput } from "@/validations/branch";
 
@@ -114,14 +121,7 @@ export function BranchFormDialog({
 
     if (!result.success) {
       if (result.errors.length > 0) {
-        for (const fieldError of result.errors) {
-          if (fieldError.field && fieldError.field !== "root") {
-            setError(fieldError.field as keyof CreateBranchInput, {
-              type: "server",
-              message: fieldError.message,
-            });
-          }
-        }
+        applyServerFieldErrors(result.errors, setError);
       }
       setFormError(result.message);
       return;
@@ -207,7 +207,7 @@ export function BranchFormDialog({
               <Input
                 id="code"
                 autoComplete="off"
-                placeholder="Enter the branch code"
+                placeholder={enterPlaceholder("branch code")}
                 disabled={readOnly || isSubmitting}
                 aria-invalid={errors.code ? true : undefined}
                 aria-describedby={errors.code ? "code-error" : undefined}
@@ -218,7 +218,7 @@ export function BranchFormDialog({
               <Input
                 id="name"
                 autoComplete="organization"
-                placeholder="Enter the branch name"
+                placeholder={enterPlaceholder("branch name")}
                 disabled={readOnly || isSubmitting}
                 aria-invalid={errors.name ? true : undefined}
                 aria-describedby={errors.name ? "name-error" : undefined}
@@ -240,7 +240,7 @@ export function BranchFormDialog({
                       aria-invalid={errors.type ? true : undefined}
                       aria-describedby={errors.type ? "type-error" : undefined}
                     >
-                      <SelectValue placeholder="Select type" />
+                      <SelectValue placeholder={selectPlaceholder("type")} />
                     </SelectTrigger>
                     <SelectContent>
                       {BRANCH_TYPE_OPTIONS.map((option) => (
@@ -285,7 +285,7 @@ export function BranchFormDialog({
                 id="email"
                 type="email"
                 autoComplete="email"
-                placeholder="Enter the email"
+                placeholder={enterPlaceholder("email")}
                 disabled={readOnly || isSubmitting}
                 aria-invalid={errors.email ? true : undefined}
                 aria-describedby={errors.email ? "email-error" : undefined}
@@ -297,11 +297,13 @@ export function BranchFormDialog({
                 id="phone"
                 type="tel"
                 autoComplete="tel"
-                placeholder="Enter the mobile number"
+                placeholder={enterPlaceholder("mobile number")}
+                inputMode="numeric"
+                maxLength={PHONE_DIGIT_COUNT}
                 disabled={readOnly || isSubmitting}
                 aria-invalid={errors.phone ? true : undefined}
                 aria-describedby={errors.phone ? "phone-error" : undefined}
-                {...register("phone")}
+                {...register("phone", phoneRegisterOptions)}
               />
             </FormField>
           </FormSection>
@@ -316,7 +318,7 @@ export function BranchFormDialog({
               <Input
                 id="addressLine1"
                 autoComplete="address-line1"
-                placeholder="Enter the address"
+                placeholder={enterPlaceholder("address")}
                 disabled={readOnly || isSubmitting}
                 {...register("addressLine1")}
               />
@@ -330,7 +332,7 @@ export function BranchFormDialog({
               <Input
                 id="addressLine2"
                 autoComplete="address-line2"
-                placeholder="Enter the address line 2"
+                placeholder={enterPlaceholder("address line 2")}
                 disabled={readOnly || isSubmitting}
                 {...register("addressLine2")}
               />
@@ -339,7 +341,7 @@ export function BranchFormDialog({
               <Input
                 id="city"
                 autoComplete="address-level2"
-                placeholder="Enter the city"
+                placeholder={enterPlaceholder("city")}
                 disabled={readOnly || isSubmitting}
                 {...register("city")}
               />
@@ -348,7 +350,7 @@ export function BranchFormDialog({
               <Input
                 id="state"
                 autoComplete="address-level1"
-                placeholder="Enter the state"
+                placeholder={enterPlaceholder("state")}
                 disabled={readOnly || isSubmitting}
                 {...register("state")}
               />
@@ -357,7 +359,7 @@ export function BranchFormDialog({
               <Input
                 id="postalCode"
                 autoComplete="postal-code"
-                placeholder="Enter the postal code"
+                placeholder={enterPlaceholder("postal code")}
                 disabled={readOnly || isSubmitting}
                 {...register("postalCode")}
               />
@@ -366,7 +368,7 @@ export function BranchFormDialog({
               <Input
                 id="country"
                 autoComplete="country-name"
-                placeholder="Enter the country"
+                placeholder={enterPlaceholder("country")}
                 disabled={readOnly || isSubmitting}
                 {...register("country")}
               />

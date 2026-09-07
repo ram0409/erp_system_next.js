@@ -26,6 +26,8 @@ interface FieldDescriptor {
 const UNIQUE_COLUMN_FIELDS: Readonly<Record<string, FieldDescriptor>> = {
   email_normalized: { field: "email", label: "Email address" },
   employee_code_normalized: { field: "employeeCode", label: "Employee code" },
+  users_email_normalized_active_key: { field: "email", label: "Email address" },
+  users_employee_code_normalized_active_key: { field: "employeeCode", label: "Employee code" },
   code_normalized: { field: "code", label: "Code" },
   name_normalized: { field: "name", label: "Name" },
   slug: { field: "slug", label: "Slug" },

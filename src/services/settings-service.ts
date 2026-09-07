@@ -14,6 +14,7 @@ import { AUDIT_ACTIONS } from "@/constants/status";
 import { duplicateFieldError, NotFoundError, ValidationError } from "@/lib/errors";
 import { buildLogoPublicPath, detectLogoExtension } from "@/lib/logo";
 import { deleteLogoFile, writeLogoFile } from "@/lib/logo-storage";
+import { emptyToNull } from "@/lib/normalize";
 import * as auditRepository from "@/repositories/audit-repository";
 import * as organizationRepository from "@/repositories/organization-repository";
 import type { OrganizationRow } from "@/repositories/organization-repository";
@@ -32,11 +33,6 @@ const ENTITY_TYPE = "Organization";
 
 interface AuditMeta {
   readonly userAgent?: string | null;
-}
-
-function emptyToNull(value: string | null | undefined): string | null {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : null;
 }
 
 function toSettings(row: OrganizationRow): OrganizationSettings {

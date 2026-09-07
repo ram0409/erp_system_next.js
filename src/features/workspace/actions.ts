@@ -10,8 +10,8 @@ export const setWorkspaceAction = defineAuthenticatedAction({
   name: "workspace.set",
   schema: setWorkspaceSchema,
   successMessage: "OK",
-  handler: async (input) => {
-    const data = await workspaceService.setWorkspace(input);
+  handler: async (input, actor) => {
+    const data = await workspaceService.setWorkspace(input, actor);
     revalidatePath("/", "layout");
     return data;
   },

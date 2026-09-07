@@ -13,7 +13,12 @@ export const PERMISSION_MODULES = {
   ROLES: "roles",
   ROLE_PERMISSIONS: "role_permissions",
   BRANCHES: "branches",
+  CUSTOMERS: "customers",
+  /** General Settings (theme / accent). Stable key — do not rename. */
   SETTINGS: "settings",
+  COMPANY_DETAILS: "company_details",
+  PROFILE: "profile",
+  SECURITY: "security",
   AUDIT_LOGS: "audit_logs",
 } as const;
 
@@ -23,6 +28,7 @@ export type PermissionModule = (typeof PERMISSION_MODULES)[keyof typeof PERMISSI
 export const PERMISSION_GROUPS = {
   DASHBOARD: "dashboard",
   ADMINISTRATION: "administration",
+  CUSTOMER_MANAGEMENT: "customer_management",
   SETTINGS: "settings",
 } as const;
 
@@ -31,12 +37,14 @@ export type PermissionGroupId = (typeof PERMISSION_GROUPS)[keyof typeof PERMISSI
 export const PERMISSION_GROUP_ORDER = [
   PERMISSION_GROUPS.DASHBOARD,
   PERMISSION_GROUPS.ADMINISTRATION,
+  PERMISSION_GROUPS.CUSTOMER_MANAGEMENT,
   PERMISSION_GROUPS.SETTINGS,
 ] as const satisfies readonly PermissionGroupId[];
 
 export const PERMISSION_GROUP_LABELS: Readonly<Record<PermissionGroupId, string>> = {
   dashboard: "Dashboard",
   administration: "Administration",
+  customer_management: "Customer Management",
   settings: "Settings",
 };
 
@@ -96,9 +104,28 @@ export const PERMISSIONS = {
     DELETE: buildPermissionKey(PERMISSION_MODULES.BRANCHES, PERMISSION_ACTIONS.DELETE),
     EXPORT: buildPermissionKey(PERMISSION_MODULES.BRANCHES, PERMISSION_ACTIONS.EXPORT),
   },
+  CUSTOMERS: {
+    VIEW: buildPermissionKey(PERMISSION_MODULES.CUSTOMERS, PERMISSION_ACTIONS.VIEW),
+    CREATE: buildPermissionKey(PERMISSION_MODULES.CUSTOMERS, PERMISSION_ACTIONS.CREATE),
+    EDIT: buildPermissionKey(PERMISSION_MODULES.CUSTOMERS, PERMISSION_ACTIONS.EDIT),
+    DELETE: buildPermissionKey(PERMISSION_MODULES.CUSTOMERS, PERMISSION_ACTIONS.DELETE),
+    EXPORT: buildPermissionKey(PERMISSION_MODULES.CUSTOMERS, PERMISSION_ACTIONS.EXPORT),
+  },
   SETTINGS: {
     VIEW: buildPermissionKey(PERMISSION_MODULES.SETTINGS, PERMISSION_ACTIONS.VIEW),
     EDIT: buildPermissionKey(PERMISSION_MODULES.SETTINGS, PERMISSION_ACTIONS.EDIT),
+  },
+  COMPANY_DETAILS: {
+    VIEW: buildPermissionKey(PERMISSION_MODULES.COMPANY_DETAILS, PERMISSION_ACTIONS.VIEW),
+    EDIT: buildPermissionKey(PERMISSION_MODULES.COMPANY_DETAILS, PERMISSION_ACTIONS.EDIT),
+  },
+  PROFILE: {
+    VIEW: buildPermissionKey(PERMISSION_MODULES.PROFILE, PERMISSION_ACTIONS.VIEW),
+    EDIT: buildPermissionKey(PERMISSION_MODULES.PROFILE, PERMISSION_ACTIONS.EDIT),
+  },
+  SECURITY: {
+    VIEW: buildPermissionKey(PERMISSION_MODULES.SECURITY, PERMISSION_ACTIONS.VIEW),
+    EDIT: buildPermissionKey(PERMISSION_MODULES.SECURITY, PERMISSION_ACTIONS.EDIT),
   },
   AUDIT_LOGS: {
     VIEW: buildPermissionKey(PERMISSION_MODULES.AUDIT_LOGS, PERMISSION_ACTIONS.VIEW),
@@ -177,19 +204,51 @@ export const PERMISSION_CATALOG: readonly PermissionModuleDefinition[] = [
     actions: actionsFromGroup(PERMISSIONS.ROLE_PERMISSIONS),
   },
   {
+    module: PERMISSION_MODULES.CUSTOMERS,
+    group: PERMISSION_GROUPS.CUSTOMER_MANAGEMENT,
+    label: "Customers",
+    description: "Manage customer records and their operating status",
+    order: 1,
+    actions: actionsFromGroup(PERMISSIONS.CUSTOMERS),
+  },
+  {
     module: PERMISSION_MODULES.SETTINGS,
     group: PERMISSION_GROUPS.SETTINGS,
-    label: "General & Company Details",
-    description: "Theme, accent colour, company identity and logo",
+    label: "General Settings",
+    description: "Theme and accent colour preferences",
     order: 1,
     actions: actionsFromGroup(PERMISSIONS.SETTINGS),
+  },
+  {
+    module: PERMISSION_MODULES.COMPANY_DETAILS,
+    group: PERMISSION_GROUPS.SETTINGS,
+    label: "Company Details",
+    description: "Organization identity, contact details, and logo",
+    order: 2,
+    actions: actionsFromGroup(PERMISSIONS.COMPANY_DETAILS),
+  },
+  {
+    module: PERMISSION_MODULES.PROFILE,
+    group: PERMISSION_GROUPS.SETTINGS,
+    label: "Profile",
+    description: "Personal profile and account details",
+    order: 3,
+    actions: actionsFromGroup(PERMISSIONS.PROFILE),
+  },
+  {
+    module: PERMISSION_MODULES.SECURITY,
+    group: PERMISSION_GROUPS.SETTINGS,
+    label: "Security",
+    description: "Organization password policy and inactive accounts (Admin only)",
+    order: 4,
+    actions: actionsFromGroup(PERMISSIONS.SECURITY),
   },
   {
     module: PERMISSION_MODULES.AUDIT_LOGS,
     group: PERMISSION_GROUPS.SETTINGS,
     label: "Audit Logs",
     description: "Review the audit trail of administrative activity",
-    order: 2,
+    order: 5,
     actions: actionsFromGroup(PERMISSIONS.AUDIT_LOGS),
   },
 ];

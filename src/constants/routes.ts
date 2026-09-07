@@ -5,6 +5,8 @@ export const ROUTES = {
   FORGOT_PASSWORD: "/forgot-password",
   RESET_PASSWORD: "/reset-password",
   VERIFY_TWO_FACTOR: "/verify-2fa",
+  /** Route handler: clears pending 2FA and redirects to login. */
+  CANCEL_TWO_FACTOR: "/api/auth/cancel-2fa",
 
   DASHBOARD: "/dashboard",
 
@@ -13,6 +15,12 @@ export const ROUTES = {
   ROLES: "/administration/roles",
   ROLE_PERMISSIONS: "/administration/role-permissions",
   BRANCHES: "/administration/branches",
+  /** Compatibility redirect to Customers. Not a sidebar item. */
+  ADMINISTRATION_CUSTOMERS: "/administration/customers",
+
+  CUSTOMER_MANAGEMENT: "/customer-management",
+  CUSTOMERS: "/customer-management/customers",
+
   /** Compatibility redirect to Branches. Not a sidebar item. */
   ENTITY: "/administration/entity",
   /** Compatibility redirect to Company Details. Not a sidebar item. */
@@ -52,6 +60,8 @@ export const SEGMENT_LABELS: Readonly<Record<string, string>> = {
   roles: "Roles",
   "role-permissions": "Role Permissions",
   branches: "Branches",
+  "customer-management": "Customer Management",
+  customers: "Customers",
   entity: "Entity",
   organization: "Organization",
   settings: "Settings",

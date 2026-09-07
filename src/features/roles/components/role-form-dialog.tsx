@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { createRoleAction, updateRoleAction } from "@/features/roles/actions";
+import { applyServerFieldErrors } from "@/lib/form-action-errors";
+import { enterPlaceholder } from "@/lib/form-fields";
 import { normalizeSlug } from "@/lib/normalize";
 import type { RoleDetail } from "@/types/role";
 import { createRoleSchema, type CreateRoleInput } from "@/validations/role";
@@ -88,14 +90,7 @@ export function RoleFormDialog({
 
     if (!result.success) {
       if (result.errors.length > 0) {
-        for (const fieldError of result.errors) {
-          if (fieldError.field && fieldError.field !== "root") {
-            setError(fieldError.field as keyof CreateRoleInput, {
-              type: "server",
-              message: fieldError.message,
-            });
-          }
-        }
+        applyServerFieldErrors(result.errors, setError);
       }
       setFormError(result.message);
       return;
@@ -161,7 +156,7 @@ export function RoleFormDialog({
               <Input
                 id="name"
                 autoComplete="off"
-                placeholder="Enter the role name"
+                placeholder={enterPlaceholder("role name")}
                 disabled={readOnly || isSubmitting}
                 aria-invalid={errors.name ? true : undefined}
                 aria-describedby={errors.name ? "name-error" : undefined}
@@ -190,7 +185,7 @@ export function RoleFormDialog({
               <Input
                 id="slug"
                 autoComplete="off"
-                placeholder="Enter the slug"
+                placeholder={enterPlaceholder("slug")}
                 disabled={readOnly || isSubmitting || mode !== "create"}
                 aria-invalid={errors.slug ? true : undefined}
                 aria-describedby={errors.slug ? "slug-error" : "slug-hint"}
@@ -209,7 +204,7 @@ export function RoleFormDialog({
             >
               <Textarea
                 id="description"
-                placeholder="Enter the description"
+                placeholder={enterPlaceholder("description")}
                 disabled={readOnly || isSubmitting}
                 aria-invalid={errors.description ? true : undefined}
                 {...register("description")}

@@ -20,6 +20,9 @@ function homeScope(
 /**
  * Selected Branch for this request. Listings, counts and assignment dropdowns
  * read this so the header switcher actually changes what is shown.
+ *
+ * Only Super Admin may switch away from their home branch. Everyone else is
+ * locked to the branch on their user record.
  */
 export const getWorkspaceScope = cache(async (): Promise<WorkspaceScope | null> => {
   const actor = await getActorContext();
@@ -28,6 +31,11 @@ export const getWorkspaceScope = cache(async (): Promise<WorkspaceScope | null> 
   }
 
   const assigned = homeScope(actor);
+
+  if (!actor.user.role.isSuperAdmin) {
+    return assigned;
+  }
+
   const cookie = await readWorkspaceCookie();
   if (!cookie || cookie.branchPublicId === assigned.branchPublicId) {
     return assigned;

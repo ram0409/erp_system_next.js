@@ -7,6 +7,7 @@ import { ROUTES } from "@/constants/routes";
 import { SUCCESS_MESSAGES } from "@/constants/messages";
 import { defineAction } from "@/lib/action";
 import { getUserAgent } from "@/lib/request";
+import { assertCanEditOrgSecurityPolicies } from "@/lib/security-policy-access";
 import * as settingsService from "@/services/settings-service";
 import type { ActorContext } from "@/types/session";
 import {
@@ -39,7 +40,7 @@ async function persistOrganizationSettings(
 
 export const updateOrganizationSettingsAction = defineAction({
   name: "settings.update",
-  permission: PERMISSIONS.SETTINGS.EDIT,
+  permission: PERMISSIONS.COMPANY_DETAILS.EDIT,
   schema: updateOrganizationSettingsSchema,
   successMessage: SUCCESS_MESSAGES.UPDATED,
   handler: persistOrganizationSettings,
@@ -47,7 +48,7 @@ export const updateOrganizationSettingsAction = defineAction({
 
 export const uploadCompanyLogoAction = defineAction({
   name: "settings.uploadLogo",
-  permission: PERMISSIONS.SETTINGS.EDIT,
+  permission: PERMISSIONS.COMPANY_DETAILS.EDIT,
   schema: uploadCompanyLogoSchema,
   successMessage: SUCCESS_MESSAGES.LOGO_UPDATED,
   handler: async (input, actor) => {
@@ -61,7 +62,7 @@ export const uploadCompanyLogoAction = defineAction({
 
 export const removeCompanyLogoAction = defineAction({
   name: "settings.removeLogo",
-  permission: PERMISSIONS.SETTINGS.EDIT,
+  permission: PERMISSIONS.COMPANY_DETAILS.EDIT,
   schema: emptyCompanyLogoInputSchema,
   successMessage: SUCCESS_MESSAGES.LOGO_REMOVED,
   handler: async (_input, actor) => {
@@ -75,10 +76,11 @@ export const removeCompanyLogoAction = defineAction({
 
 export const updateSecurityPolicyAction = defineAction({
   name: "settings.updateSecurityPolicy",
-  permission: PERMISSIONS.SETTINGS.EDIT,
+  permission: PERMISSIONS.SECURITY.EDIT,
   schema: updateSecurityPolicySchema,
   successMessage: SUCCESS_MESSAGES.SECURITY_POLICY_UPDATED,
   handler: async (input: UpdateSecurityPolicyInput, actor) => {
+    assertCanEditOrgSecurityPolicies(actor);
     const data = await settingsService.updateSecurityPolicy(input, actor, {
       userAgent: await getUserAgent(),
     });
@@ -90,10 +92,11 @@ export const updateSecurityPolicyAction = defineAction({
 
 export const updatePasswordPolicyAction = defineAction({
   name: "settings.updatePasswordPolicy",
-  permission: PERMISSIONS.SETTINGS.EDIT,
+  permission: PERMISSIONS.SECURITY.EDIT,
   schema: updatePasswordPolicySchema,
   successMessage: SUCCESS_MESSAGES.PASSWORD_POLICY_UPDATED,
   handler: async (input: UpdatePasswordPolicyInput, actor) => {
+    assertCanEditOrgSecurityPolicies(actor);
     const data = await settingsService.updatePasswordPolicy(input, actor, {
       userAgent: await getUserAgent(),
     });

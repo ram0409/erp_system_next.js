@@ -13,6 +13,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { updateOrganizationSettingsAction } from "@/features/settings/actions";
+import {
+  PHONE_DIGIT_COUNT,
+  enterPlaceholder,
+  phoneRegisterOptions,
+} from "@/lib/form-fields";
+import { applyServerFieldErrors } from "@/lib/form-action-errors";
 import type { OrganizationSettings } from "@/types/settings";
 import {
   updateOrganizationSettingsSchema,
@@ -65,14 +71,7 @@ export function GeneralSettingsForm({ settings, canEdit }: GeneralSettingsFormPr
 
     if (!result.success) {
       if (result.errors.length > 0) {
-        for (const fieldError of result.errors) {
-          if (fieldError.field && fieldError.field !== "root") {
-            setError(fieldError.field as keyof UpdateOrganizationSettingsInput, {
-              type: "server",
-              message: fieldError.message,
-            });
-          }
-        }
+        applyServerFieldErrors(result.errors, setError);
       }
       setFormError(result.message);
       return;
@@ -105,7 +104,7 @@ export function GeneralSettingsForm({ settings, canEdit }: GeneralSettingsFormPr
               <Input
                 id="name"
                 autoComplete="organization"
-                placeholder="Enter the company name"
+                placeholder={enterPlaceholder("company name")}
                 disabled={disabled}
                 aria-invalid={errors.name ? true : undefined}
                 {...register("name")}
@@ -115,7 +114,7 @@ export function GeneralSettingsForm({ settings, canEdit }: GeneralSettingsFormPr
               <Input
                 id="legalName"
                 autoComplete="off"
-                placeholder="Enter the legal name"
+                placeholder={enterPlaceholder("legal name")}
                 disabled={disabled}
                 aria-invalid={errors.legalName ? true : undefined}
                 {...register("legalName")}
@@ -131,7 +130,7 @@ export function GeneralSettingsForm({ settings, canEdit }: GeneralSettingsFormPr
               <Input
                 id="code"
                 autoComplete="off"
-                placeholder="Enter the company code"
+                placeholder={enterPlaceholder("company code")}
                 disabled={disabled}
                 aria-invalid={errors.code ? true : undefined}
                 {...register("code")}
@@ -141,7 +140,7 @@ export function GeneralSettingsForm({ settings, canEdit }: GeneralSettingsFormPr
               <Input
                 id="taxId"
                 autoComplete="off"
-                placeholder="Enter the tax ID"
+                placeholder={enterPlaceholder("tax ID")}
                 disabled={disabled}
                 aria-invalid={errors.taxId ? true : undefined}
                 {...register("taxId")}
@@ -155,7 +154,7 @@ export function GeneralSettingsForm({ settings, canEdit }: GeneralSettingsFormPr
                 id="email"
                 type="email"
                 autoComplete="off"
-                placeholder="Enter the email"
+                placeholder={enterPlaceholder("email")}
                 disabled={disabled}
                 aria-invalid={errors.email ? true : undefined}
                 {...register("email")}
@@ -165,10 +164,12 @@ export function GeneralSettingsForm({ settings, canEdit }: GeneralSettingsFormPr
               <Input
                 id="phone"
                 autoComplete="off"
-                placeholder="Enter the phone number"
+                placeholder={enterPlaceholder("phone number")}
+                inputMode="numeric"
+                maxLength={PHONE_DIGIT_COUNT}
                 disabled={disabled}
                 aria-invalid={errors.phone ? true : undefined}
-                {...register("phone")}
+                {...register("phone", phoneRegisterOptions)}
               />
             </FormField>
             <FormField
@@ -179,7 +180,7 @@ export function GeneralSettingsForm({ settings, canEdit }: GeneralSettingsFormPr
             >
               <Textarea
                 id="addressLine"
-                placeholder="Enter the address"
+                placeholder={enterPlaceholder("address")}
                 disabled={disabled}
                 aria-invalid={errors.addressLine ? true : undefined}
                 {...register("addressLine")}
@@ -189,7 +190,7 @@ export function GeneralSettingsForm({ settings, canEdit }: GeneralSettingsFormPr
               <Input
                 id="city"
                 autoComplete="address-level2"
-                placeholder="Enter the city"
+                placeholder={enterPlaceholder("city")}
                 disabled={disabled}
                 aria-invalid={errors.city ? true : undefined}
                 {...register("city")}
@@ -199,7 +200,7 @@ export function GeneralSettingsForm({ settings, canEdit }: GeneralSettingsFormPr
               <Input
                 id="state"
                 autoComplete="address-level1"
-                placeholder="Enter the state"
+                placeholder={enterPlaceholder("state")}
                 disabled={disabled}
                 aria-invalid={errors.state ? true : undefined}
                 {...register("state")}
@@ -209,7 +210,7 @@ export function GeneralSettingsForm({ settings, canEdit }: GeneralSettingsFormPr
               <Input
                 id="postalCode"
                 autoComplete="postal-code"
-                placeholder="Enter the postal code"
+                placeholder={enterPlaceholder("postal code")}
                 disabled={disabled}
                 aria-invalid={errors.postalCode ? true : undefined}
                 {...register("postalCode")}
@@ -219,7 +220,7 @@ export function GeneralSettingsForm({ settings, canEdit }: GeneralSettingsFormPr
               <Input
                 id="country"
                 autoComplete="country-name"
-                placeholder="Enter the country"
+                placeholder={enterPlaceholder("country")}
                 disabled={disabled}
                 aria-invalid={errors.country ? true : undefined}
                 {...register("country")}

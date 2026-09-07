@@ -14,6 +14,7 @@ import {
 import { ROUTES } from "@/constants/routes";
 import { duplicateFieldError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { sendAccountWelcomeEmail, sendPasswordResetEmail } from "@/lib/mail";
+import { emptyToNull } from "@/lib/normalize";
 import {
   resolveAllowedValue,
   resolvePagination,
@@ -38,6 +39,7 @@ import {
 import type { PaginatedResult, RawSearchParams } from "@/types/pagination";
 import type { ActorContext } from "@/types/session";
 import type {
+  CreateUserResult,
   UserAssignmentOptions,
   UserDetail,
   UserExportResult,
@@ -53,11 +55,6 @@ const MISSING_FILTER_ID = -1;
 
 interface AuditMeta {
   readonly userAgent?: string | null;
-}
-
-function emptyToNull(value: string | null | undefined): string | null {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : null;
 }
 
 function toListItem(row: UserListRow | UserDetailRow): UserListItem {
@@ -193,8 +190,8 @@ function parseJoinDate(value: string | undefined): Date | null {
   return parsed;
 }
 
-function assertCanAssignRole(actor: ActorContext, role: { readonly isSuperAdmin: boolean }): void {
-  if (role.isSuperAdmin && !actor.user.role.isSuperAdmin) {
+function assertCanAssignRole(role: { readonly isSuperAdmin: boolean }): void {
+  if (role.isSuperAdmin) {
     throw new ForbiddenError(USER_MESSAGES.SUPER_ADMIN_ASSIGN);
   }
 }
@@ -309,12 +306,12 @@ export async function createUser(
   input: CreateUserInput,
   actor: ActorContext,
   meta: AuditMeta = {},
-): Promise<UserDetail> {
+): Promise<CreateUserResult> {
   const assignment = await resolveAssignment(input.branchPublicId, input.rolePublicId, {
     requireActiveBranch: true,
     requireActiveRole: true,
   });
-  assertCanAssignRole(actor, assignment.role);
+  assertCanAssignRole(assignment.role);
   await assertUniqueEmail(input.email);
   await assertUniqueEmployeeCode(input.employeeCode);
 
@@ -351,18 +348,23 @@ export async function createUser(
 
   const origin = env.AUTH_URL.replace(/\/$/, "");
   const loginUrl = `${origin}${ROUTES.LOGIN}`;
-  const mailed = await sendAccountWelcomeEmail({
+  const delivery = await sendAccountWelcomeEmail({
     to: created.email,
     recipientName: formatFullName(created.firstName, created.lastName),
     temporaryPassword,
     loginUrl,
   });
 
-  if (!mailed) {
+  if (delivery === "failed") {
     throw new ValidationError(USER_MESSAGES.WELCOME_EMAIL_FAILED);
   }
 
-  return toDetail(created);
+  return {
+    ...toDetail(created),
+    mailDelivered: delivery === "delivered",
+    loginUrl,
+    ...(delivery === "logged" ? { temporaryPassword } : {}),
+  };
 }
 
 export async function updateUser(
@@ -387,7 +389,10 @@ export async function updateUser(
     requireActiveBranch: branchChanging,
     requireActiveRole: roleChanging,
   });
-  assertCanAssignRole(actor, assignment.role);
+
+  if (roleChanging) {
+    assertCanAssignRole(assignment.role);
+  }
 
   if (
     existing.role.isSuperAdmin &&

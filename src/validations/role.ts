@@ -1,17 +1,14 @@
 import { z } from "zod";
 
 import { normalizeSlug } from "@/lib/normalize";
+import { publicIdSchema } from "@/validations/fields";
+
+export { publicIdSchema };
 
 /**
  * Shared by the role form and the server actions. The slug is normalized in the
  * service so a typed "Sales Manager" and a typed "sales_manager" cannot diverge.
  */
-
-export const publicIdSchema = z
-  .string()
-  .trim()
-  .min(8, "The requested record could not be found.")
-  .max(32, "The requested record could not be found.");
 
 const roleNameSchema = z
   .string()

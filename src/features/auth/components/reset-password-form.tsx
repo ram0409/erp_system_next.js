@@ -7,8 +7,8 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { FormField } from "@/components/forms/form-field";
+import { PasswordInput } from "@/components/forms/password-input";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import {
   getPasswordPolicyRules,
@@ -16,6 +16,7 @@ import {
   type PasswordPolicyId,
 } from "@/constants/password-policy";
 import { resetPasswordAction } from "@/features/auth/actions";
+import { enterPlaceholder } from "@/lib/form-fields";
 import { createResetPasswordSchema, type ResetPasswordInput } from "@/validations/auth";
 
 interface ResetPasswordFormProps {
@@ -93,11 +94,10 @@ export function ResetPasswordForm({ token, policy }: ResetPasswordFormProps) {
         error={errors.newPassword?.message}
         hint={hint}
       >
-        <Input
+        <PasswordInput
           id="newPassword"
-          type="password"
           autoComplete="new-password"
-          placeholder="Enter the new password"
+          placeholder={enterPlaceholder("new password")}
           className="auth-field"
           autoFocus
           aria-invalid={errors.newPassword ? true : undefined}
@@ -112,11 +112,10 @@ export function ResetPasswordForm({ token, policy }: ResetPasswordFormProps) {
         required
         error={errors.confirmPassword?.message}
       >
-        <Input
+        <PasswordInput
           id="confirmPassword"
-          type="password"
           autoComplete="new-password"
-          placeholder="Confirm the new password"
+          placeholder={enterPlaceholder("confirm new password")}
           className="auth-field"
           aria-invalid={errors.confirmPassword ? true : undefined}
           disabled={isPending}

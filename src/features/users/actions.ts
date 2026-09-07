@@ -8,6 +8,7 @@ import { SUCCESS_MESSAGES } from "@/constants/messages";
 import { RECORD_STATUS } from "@/constants/status";
 import { defineAction } from "@/lib/action";
 import { getUserAgent } from "@/lib/request";
+import { setWorkspaceCookie } from "@/lib/workspace-cookie";
 import * as userService from "@/services/user-service";
 import {
   createUserSchema,
@@ -37,9 +38,12 @@ export const createUserAction = defineAction({
   name: "users.create",
   permission: PERMISSIONS.USERS.CREATE,
   schema: createUserSchema,
-  successMessage: SUCCESS_MESSAGES.USER_WELCOME_SENT,
   handler: async (input, actor) => {
     const data = await userService.createUser(input, actor, await auditMeta());
+
+    // Users list is scoped to the workspace branch. Switch to the new user's
+    // branch so the created account is visible after refresh.
+    await setWorkspaceCookie({ branchPublicId: data.branch.publicId });
     revalidateUsers();
     return data;
   },

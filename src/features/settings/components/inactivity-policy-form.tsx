@@ -23,6 +23,8 @@ import {
   type InactivityPolicyFormValue,
 } from "@/constants/security";
 import { updateSecurityPolicyAction } from "@/features/settings/actions";
+import { applyServerFieldErrors } from "@/lib/form-action-errors";
+import { selectPlaceholder } from "@/lib/form-fields";
 import type { SecurityPolicy } from "@/types/settings";
 import {
   updateSecurityPolicyFormSchema,
@@ -74,14 +76,7 @@ export function InactivityPolicyForm({ policy, canEdit }: InactivityPolicyFormPr
 
     if (!result.success) {
       if (result.errors.length > 0) {
-        for (const fieldError of result.errors) {
-          if (fieldError.field && fieldError.field !== "root") {
-            setError(fieldError.field as keyof UpdateSecurityPolicyFormValues, {
-              type: "server",
-              message: fieldError.message,
-            });
-          }
-        }
+        applyServerFieldErrors(result.errors, setError);
       }
       setFormError(result.message);
       return;
@@ -136,7 +131,7 @@ export function InactivityPolicyForm({ policy, canEdit }: InactivityPolicyFormPr
                         : "inactivityDeactivateAfterDays-hint"
                     }
                   >
-                    <SelectValue placeholder="Choose a period" />
+                    <SelectValue placeholder={selectPlaceholder("period")} />
                   </SelectTrigger>
                   <SelectContent>
                     {POLICY_OPTIONS.map((option) => (

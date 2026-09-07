@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { ROUTES } from "@/constants/routes";
 import { signInAction } from "@/features/auth/actions";
+import { enterPlaceholder } from "@/lib/form-fields";
 import { signInSchema, type SignInInput } from "@/validations/auth";
 
 interface LoginFormProps {
@@ -78,7 +79,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
           id="email"
           type="text"
           autoComplete="username"
-          placeholder="Enter the email or username"
+          placeholder={enterPlaceholder("email or username")}
           autoFocus
           className="auth-field"
           aria-invalid={errors.email ? true : undefined}
@@ -94,7 +95,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
             id="password"
             type={showPassword ? "text" : "password"}
             autoComplete="current-password"
-            placeholder="Enter the password"
+            placeholder={enterPlaceholder("password")}
             className="auth-field pr-11"
             aria-invalid={errors.password ? true : undefined}
             aria-describedby={errors.password ? "password-error" : undefined}

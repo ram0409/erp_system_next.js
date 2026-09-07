@@ -66,3 +66,10 @@ export interface UserExportResult {
   readonly rowCount: number;
   readonly truncated: boolean;
 }
+
+/** Returned after create so the admin can copy credentials when mail was only logged. */
+export interface CreateUserResult extends UserDetail {
+  readonly mailDelivered: boolean;
+  readonly loginUrl: string;
+  readonly temporaryPassword?: string;
+}

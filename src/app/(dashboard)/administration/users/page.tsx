@@ -9,6 +9,7 @@ import { RECORD_STATUS_VALUES } from "@/constants/status";
 import { UsersWorkspace } from "@/features/users/components/users-workspace";
 import { requirePageAccess } from "@/lib/page-guard";
 import { resolveAllowedValue, resolveQueryValue, resolveSearchTerm } from "@/lib/pagination";
+import { getWorkspaceScope } from "@/lib/workspace-scope";
 import { getAssignmentOptions, listUsers } from "@/services/user-service";
 import type { RawSearchParams } from "@/types/pagination";
 
@@ -30,7 +31,11 @@ export default async function UsersPage({
   }
 
   const params = await searchParams;
-  const [result, options] = await Promise.all([listUsers(params), getAssignmentOptions()]);
+  const [result, options, workspace] = await Promise.all([
+    listUsers(params),
+    getAssignmentOptions(),
+    getWorkspaceScope(),
+  ]);
   const search = resolveSearchTerm(params);
   const status = resolveAllowedValue(params, TABLE_QUERY_KEYS.STATUS, RECORD_STATUS_VALUES);
   const rolePublicId = resolveQueryValue(params, TABLE_QUERY_KEYS.ROLE);
@@ -49,6 +54,9 @@ export default async function UsersPage({
         actorUserPublicId={access.actor.user.publicId}
         actorIsSuperAdmin={access.actor.user.role.isSuperAdmin}
         options={options}
+        workspaceBranchPublicId={
+          workspace?.branchPublicId ?? access.actor.user.branch.publicId
+        }
         exportFilters={{
           ...(search ? { search } : {}),
           ...(status ? { status } : {}),

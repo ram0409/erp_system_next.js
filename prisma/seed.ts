@@ -216,6 +216,56 @@ async function main(): Promise<void> {
         await tx.rolePermission.createMany({ data: grantRows, skipDuplicates: true });
       }
 
+      // Pre-split hosts only had settings:view / settings:edit. Copy those onto the
+      // new Settings sub-modules so existing roles keep Company / Profile / Security.
+      const legacyViewId = permissionIdsByKey.get("settings:view");
+      const legacyEditId = permissionIdsByKey.get("settings:edit");
+      const splitViewKeys = [
+        "company_details:view",
+        "profile:view",
+        "security:view",
+      ] as const;
+      const splitEditKeys = [
+        "company_details:edit",
+        "profile:edit",
+        "security:edit",
+      ] as const;
+
+      if (legacyViewId !== undefined || legacyEditId !== undefined) {
+        const roles = await tx.role.findMany({
+          select: {
+            id: true,
+            permissions: { select: { permissionId: true } },
+          },
+        });
+
+        const migrated: { roleId: number; permissionId: number }[] = [];
+
+        for (const role of roles) {
+          const granted = new Set(role.permissions.map((row) => row.permissionId));
+          if (legacyViewId !== undefined && granted.has(legacyViewId)) {
+            for (const key of splitViewKeys) {
+              const permissionId = permissionIdsByKey.get(key);
+              if (permissionId !== undefined) {
+                migrated.push({ roleId: role.id, permissionId });
+              }
+            }
+          }
+          if (legacyEditId !== undefined && granted.has(legacyEditId)) {
+            for (const key of splitEditKeys) {
+              const permissionId = permissionIdsByKey.get(key);
+              if (permissionId !== undefined) {
+                migrated.push({ roleId: role.id, permissionId });
+              }
+            }
+          }
+        }
+
+        if (migrated.length > 0) {
+          await tx.rolePermission.createMany({ data: migrated, skipDuplicates: true });
+        }
+      }
+
       const admins = await tx.user.findMany({
         where: { deletedAt: null, role: { isSuperAdmin: true } },
         select: { email: true, employeeCode: true, firstName: true, lastName: true, status: true },

@@ -642,6 +642,7 @@ export function isEmailTaken(email: string, exceptPublicId?: string): Promise<bo
     const found = await prisma.user.findFirst({
       where: {
         emailNormalized: normalizeEmail(email),
+        ...NOT_DELETED,
         ...(exceptPublicId ? { publicId: { not: exceptPublicId } } : {}),
       },
       select: { id: true },
@@ -655,6 +656,7 @@ export function isEmployeeCodeTaken(code: string, exceptPublicId?: string): Prom
     const found = await prisma.user.findFirst({
       where: {
         employeeCodeNormalized: normalizeCode(code),
+        ...NOT_DELETED,
         ...(exceptPublicId ? { publicId: { not: exceptPublicId } } : {}),
       },
       select: { id: true },
