@@ -13,8 +13,8 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -86,14 +86,12 @@ function roleHref(publicId: string): string {
   return `${ROUTES.ROLE_PERMISSIONS}?${TABLE_QUERY_KEYS.ROLE}=${encodeURIComponent(publicId)}`;
 }
 
-function checkboxState(state: ReturnType<typeof grantStateFor>): boolean | "indeterminate" {
-  if (state === "all") {
-    return true;
-  }
-  if (state === "some") {
-    return "indeterminate";
-  }
-  return false;
+function switchChecked(state: ReturnType<typeof grantStateFor>): boolean {
+  return state === "all" || state === "some";
+}
+
+function switchPartial(state: ReturnType<typeof grantStateFor>): boolean {
+  return state === "some";
 }
 
 export function RolePermissionsWorkspace({
@@ -240,12 +238,14 @@ export function RolePermissionsWorkspace({
               </CardDescription>
             </div>
             {interactive ? (
-              <div className="flex items-center gap-2">
-                <Checkbox
+              <div className="flex items-center gap-2.5">
+                <PermissionToggle
                   id="role-permission-select-all"
-                  checked={checkboxState(globalState)}
+                  label="Select all permissions"
+                  checked={switchChecked(globalState)}
+                  partial={switchPartial(globalState)}
                   disabled={isSubmitting}
-                  onCheckedChange={(checked) => setDraftKeys(setAllGranted(checked === true))}
+                  onCheckedChange={(granted) => setDraftKeys(setAllGranted(granted))}
                 />
                 <Label htmlFor="role-permission-select-all" className="font-normal">
                   Select all
@@ -309,10 +309,11 @@ export function RolePermissionsWorkspace({
                             </button>
                           </TableCell>
                           <TableCell className="text-center">
-                            <CenteredCheckbox
+                            <PermissionToggle
                               id={`group-all-${group.groupId}`}
                               label={`Grant all ${group.label} permissions`}
-                              checked={checkboxState(groupState)}
+                              checked={switchChecked(groupState)}
+                              partial={switchPartial(groupState)}
                               disabled={disabled}
                               onCheckedChange={(grantedNext) =>
                                 setDraftKeys((current) =>
@@ -435,10 +436,11 @@ function ModuleRow({
         </div>
       </TableCell>
       <TableCell className="text-center">
-        <CenteredCheckbox
+        <PermissionToggle
           id={`module-all-${definition.module}`}
           label={`Grant all ${definition.label} permissions`}
-          checked={checkboxState(moduleState)}
+          checked={switchChecked(moduleState)}
+          partial={switchPartial(moduleState)}
           disabled={disabled}
           onCheckedChange={onToggleModule}
         />
@@ -450,7 +452,7 @@ function ModuleRow({
         const key = buildPermissionKey(definition.module, action);
         return (
           <TableCell key={action} className="text-center">
-            <CenteredCheckbox
+            <PermissionToggle
               id={key}
               label={`${definition.label} ${PERMISSION_ACTION_LABELS[action]}`}
               checked={draftKeys.has(key)}
@@ -464,27 +466,35 @@ function ModuleRow({
   );
 }
 
-function CenteredCheckbox({
+function PermissionToggle({
   id,
   label,
   checked,
+  partial = false,
   disabled,
   onCheckedChange,
 }: {
   readonly id: string;
   readonly label: string;
-  readonly checked: boolean | "indeterminate";
+  readonly checked: boolean;
+  readonly partial?: boolean;
   readonly disabled: boolean;
   readonly onCheckedChange: (granted: boolean) => void;
 }) {
   return (
     <div className="flex justify-center">
-      <Checkbox
+      <Switch
         id={id}
         aria-label={label}
         checked={checked}
         disabled={disabled}
-        onCheckedChange={(value) => onCheckedChange(value === true)}
+        onCheckedChange={onCheckedChange}
+        className={cn(
+          "h-5 w-9 shadow-none",
+          "[&_[data-slot=switch-thumb]]:size-4",
+          "[&[data-state=checked]_[data-slot=switch-thumb]]:translate-x-[1.05rem]",
+          partial && "data-[state=checked]:bg-primary",
+        )}
       />
     </div>
   );

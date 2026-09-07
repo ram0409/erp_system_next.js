@@ -22,6 +22,24 @@ export function isLoopbackHost(connectionOrUrl: string): boolean {
   }
 }
 
+/**
+ * Neon PgBouncer (`*-pooler.*`) cannot hold session advisory locks that
+ * `prisma migrate deploy` needs. Prefer the direct compute host when present.
+ */
+export function preferDirectNeonHost(connectionString: string): string {
+  try {
+    const parsed = new URL(connectionString);
+    const host = parsed.hostname.toLowerCase();
+    if (host.includes("-pooler.") && host.endsWith(".neon.tech")) {
+      parsed.hostname = parsed.hostname.replace(/-pooler\./i, ".");
+      return parsed.toString();
+    }
+    return connectionString;
+  } catch {
+    return connectionString;
+  }
+}
+
 /** Runtime queries: prefer a pooled URL when a host (Vercel Postgres) provides one. */
 export function resolveDatabaseUrl(env: NodeJS.Dict<string> = process.env): string | undefined {
   return firstNonEmpty([env.DATABASE_URL, env.POSTGRES_PRISMA_URL, env.POSTGRES_URL]);
@@ -29,13 +47,15 @@ export function resolveDatabaseUrl(env: NodeJS.Dict<string> = process.env): stri
 
 /** Migrations cannot run through PgBouncer in transaction mode; prefer a direct URL. */
 export function resolveMigrateDatabaseUrl(env: NodeJS.Dict<string> = process.env): string | undefined {
-  return firstNonEmpty([
+  const url = firstNonEmpty([
     env.DIRECT_DATABASE_URL,
     env.POSTGRES_URL_NON_POOLING,
+    env.DATABASE_URL_UNPOOLED,
     env.DATABASE_URL,
     env.POSTGRES_URL,
     env.POSTGRES_PRISMA_URL,
   ]);
+  return url ? preferDirectNeonHost(url) : undefined;
 }
 
 function vercelHttpsOrigin(env: NodeJS.Dict<string>): string | undefined {
