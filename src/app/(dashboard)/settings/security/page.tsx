@@ -3,11 +3,13 @@ import { redirect } from "next/navigation";
 
 import { PageContainer } from "@/components/layout/page-container";
 import { PageHeader } from "@/components/shared/page-header";
-import { PERMISSIONS } from "@/constants/permissions";
 import { ROUTES } from "@/constants/routes";
 import { SecuritySettings } from "@/features/settings/components/security-settings";
-import { hasAllPermissions } from "@/lib/authorization";
 import { loginHref } from "@/lib/login-href";
+import {
+  canEditOrgSecurityPolicies,
+  canViewOrgSecurityPolicies,
+} from "@/lib/security-policy-access";
 import { getActorContext, requiresPasswordChange } from "@/lib/session";
 import { getPasswordPolicy, getSecurityPolicy } from "@/services/settings-service";
 import { getTwoFactorStatus } from "@/services/two-factor-service";
@@ -23,8 +25,8 @@ export default async function SecuritySettingsPage() {
   }
 
   const forced = await requiresPasswordChange();
-  const canViewPolicy = hasAllPermissions(actor, [PERMISSIONS.SETTINGS.VIEW]);
-  const canEditPolicy = hasAllPermissions(actor, [PERMISSIONS.SETTINGS.EDIT]);
+  const canViewPolicy = canViewOrgSecurityPolicies(actor);
+  const canEditPolicy = canEditOrgSecurityPolicies(actor);
   const [securityPolicy, passwordPolicy, twoFactor] = await Promise.all([
     canViewPolicy ? getSecurityPolicy() : Promise.resolve(null),
     getPasswordPolicy(),
@@ -35,7 +37,11 @@ export default async function SecuritySettingsPage() {
     <PageContainer>
       <PageHeader
         title="Security"
-        description="Password, two-factor authentication, password policy, and inactive-account policy."
+        description={
+          canViewPolicy
+            ? "Password, two-factor authentication, password policy, and inactive-account policy."
+            : "Password and two-factor authentication for your own account."
+        }
       />
       <SecuritySettings
         forced={forced}

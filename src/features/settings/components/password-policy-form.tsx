@@ -16,6 +16,7 @@ import {
   type PasswordPolicyId,
 } from "@/constants/password-policy";
 import { updatePasswordPolicyAction } from "@/features/settings/actions";
+import { applyServerFieldErrors } from "@/lib/form-action-errors";
 import { cn } from "@/lib/utils";
 import type { PasswordPolicySettings } from "@/types/settings";
 import {
@@ -63,14 +64,7 @@ export function PasswordPolicyForm({ settings, canEdit }: PasswordPolicyFormProp
 
     if (!result.success) {
       if (result.errors.length > 0) {
-        for (const fieldError of result.errors) {
-          if (fieldError.field && fieldError.field !== "root") {
-            setError(fieldError.field as keyof UpdatePasswordPolicyInput, {
-              type: "server",
-              message: fieldError.message,
-            });
-          }
-        }
+        applyServerFieldErrors(result.errors, setError);
       }
       setFormError(result.message);
       return;

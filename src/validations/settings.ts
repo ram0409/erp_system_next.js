@@ -4,18 +4,12 @@ import { SETTINGS_MESSAGES } from "@/constants/messages";
 import { PASSWORD_POLICY_IDS } from "@/constants/password-policy";
 import { INACTIVITY_POLICY_FORM_VALUES, INACTIVITY_POLICY_OFF } from "@/constants/security";
 import { logoRejectionMessage } from "@/lib/logo";
+import { optionalEmailField, optionalPhoneField, optionalText, entityCodeField } from "@/validations/fields";
 
 /**
  * Shared by the Company Details form and the update action. Empty optional
  * strings are allowed here and collapsed to `null` in the service.
  */
-
-const organizationCodeSchema = z
-  .string()
-  .trim()
-  .min(1, "Company code is required")
-  .max(32, "Company code is too long")
-  .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/, "Use letters, numbers, dots, hyphens or underscores only");
 
 const organizationNameSchema = z
   .string()
@@ -23,29 +17,10 @@ const organizationNameSchema = z
   .min(1, "Company name is required")
   .max(160, "Company name is too long");
 
-function optionalText(max: number, tooLong: string) {
-  return z.string().trim().max(max, tooLong);
-}
-
-const optionalEmailField = z
-  .string()
-  .trim()
-  .max(160, "Email address is too long")
-  .refine(
-    (value) => value === "" || z.string().email().safeParse(value).success,
-    "Enter a valid email address",
-  )
-  .transform((value) => value.toLowerCase());
-
-const optionalPhoneField = optionalText(32, "Phone number is too long").refine(
-  (value) => value === "" || /^[+\d][\d\s().-]*$/.test(value),
-  "Enter a valid phone number",
-);
-
 export const updateOrganizationSettingsSchema = z.object({
   name: organizationNameSchema,
   legalName: optionalText(200, "Legal name is too long"),
-  code: organizationCodeSchema,
+  code: entityCodeField("Company code"),
   email: optionalEmailField,
   phone: optionalPhoneField,
   taxId: optionalText(64, "Tax ID is too long"),

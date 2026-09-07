@@ -46,6 +46,8 @@ export const SUCCESS_MESSAGES = {
   TWO_FACTOR_CODE_SENT: "A sign-in code has been sent to your email.",
   TWO_FACTOR_VERIFIED: "Verification successful.",
   USER_WELCOME_SENT: "User created. A temporary password was emailed with the sign-in link.",
+  USER_WELCOME_LOCAL:
+    "User created. SMTP is not configured locally — copy the temporary password below.",
 } as const;
 
 export const EMPTY_STATE_MESSAGES = {
@@ -68,6 +70,15 @@ export const BRANCH_MESSAGES = {
   USERS_ASSIGNED_DEACTIVATE: "Reassign users before deactivating this branch.",
   USERS_ASSIGNED_DELETE: "Reassign users before deleting this branch.",
   LAST_BRANCH: "The organization must keep at least one branch.",
+  EXPORT_TRUNCATED: "The export was limited to the first 5,000 matching rows.",
+} as const;
+
+/** Customer-master rule copy. Kept here so the service and the UI stay in sync. */
+export const CUSTOMER_MESSAGES = {
+  CODE_TAKEN: "Customer code is already in use.",
+  NAME_TAKEN: "Customer name is already in use.",
+  BRANCH_INACTIVE: "Assign an active branch.",
+  BRANCH_REQUIRED: "Select a branch.",
   EXPORT_TRUNCATED: "The export was limited to the first 5,000 matching rows.",
 } as const;
 
@@ -96,7 +107,7 @@ export const USER_MESSAGES = {
   OWN_USER_DELETE: "You cannot delete your own account.",
   OWN_USER_ROLE: "You cannot change the role you are signed in with.",
   LAST_SUPER_ADMIN: "The organization must keep at least one Super Admin.",
-  SUPER_ADMIN_ASSIGN: "Only a Super Admin can assign the Super Admin role.",
+  SUPER_ADMIN_ASSIGN: "The Super Admin role cannot be assigned from the user form.",
   SUPER_ADMIN_EDIT: "Only a Super Admin can change a Super Admin account.",
   BRANCH_INACTIVE: "Assign an active branch.",
   ROLE_INACTIVE: "Assign an active role.",

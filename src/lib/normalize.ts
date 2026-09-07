@@ -38,3 +38,9 @@ export function normalizeSlug(value: string): string {
     .replace(/^_+|_+$/g, "")
     .slice(0, 64);
 }
+
+/** Collapse blank optional form strings to `null` before persistence. */
+export function emptyToNull(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}

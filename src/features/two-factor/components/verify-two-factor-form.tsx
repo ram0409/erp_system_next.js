@@ -163,7 +163,7 @@ export function VerifyTwoFactorForm({ challenge: initialChallenge }: VerifyTwoFa
         ) : null}
 
         <Link
-          href={`${ROUTES.LOGIN}?cancel=1`}
+          href={ROUTES.CANCEL_TWO_FACTOR}
           className="text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
         >
           Back to sign in

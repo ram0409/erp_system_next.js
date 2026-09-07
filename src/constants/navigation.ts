@@ -12,10 +12,12 @@ import { ROUTES } from "@/constants/routes";
 export type NavIconName =
   | "dashboard"
   | "administration"
+  | "customer-management"
   | "users"
   | "roles"
   | "permissions"
   | "branches"
+  | "customers"
   | "settings"
   | "general-settings"
   | "company-details"
@@ -26,6 +28,7 @@ export type NavIconName =
 /** Stable ids for sidebar groups. Hub routes (`/administration`, `/settings`) resolve from these. */
 export const NAV_GROUP_IDS = {
   ADMINISTRATION: "administration",
+  CUSTOMER_MANAGEMENT: "customer-management",
   SETTINGS: "settings",
 } as const;
 
@@ -103,6 +106,21 @@ export const NAVIGATION: readonly NavItem[] = [
   },
   {
     kind: "group",
+    id: NAV_GROUP_IDS.CUSTOMER_MANAGEMENT,
+    label: "Customer Management",
+    icon: "customer-management",
+    children: [
+      {
+        kind: "link",
+        label: "Customers",
+        href: ROUTES.CUSTOMERS,
+        icon: "customers",
+        permission: PERMISSIONS.CUSTOMERS.VIEW,
+      },
+    ],
+  },
+  {
+    kind: "group",
     id: NAV_GROUP_IDS.SETTINGS,
     label: "Settings",
     icon: "settings",
@@ -119,13 +137,14 @@ export const NAVIGATION: readonly NavItem[] = [
         label: "Company Details",
         href: ROUTES.SETTINGS_COMPANY,
         icon: "company-details",
-        permission: PERMISSIONS.SETTINGS.VIEW,
+        permission: PERMISSIONS.COMPANY_DETAILS.VIEW,
       },
       {
         kind: "link",
         label: "Profile",
         href: ROUTES.PROFILE,
         icon: "profile",
+        permission: PERMISSIONS.PROFILE.VIEW,
       },
       {
         kind: "link",
@@ -214,6 +233,13 @@ export function firstAccessibleSettingsHref(
   can: (permission: PermissionKey) => boolean,
 ): string | null {
   return firstAccessibleGroupHref(NAV_GROUP_IDS.SETTINGS, can);
+}
+
+/** First Customer Management child the actor can open. */
+export function firstAccessibleCustomerManagementHref(
+  can: (permission: PermissionKey) => boolean,
+): string | null {
+  return firstAccessibleGroupHref(NAV_GROUP_IDS.CUSTOMER_MANAGEMENT, can);
 }
 
 /** Flattened links, including children of groups, in sidebar order. */

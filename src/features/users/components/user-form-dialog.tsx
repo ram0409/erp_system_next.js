@@ -18,6 +18,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createUserAction, updateUserAction } from "@/features/users/actions";
+import { SUCCESS_MESSAGES } from "@/constants/messages";
+import {
+  PHONE_DIGIT_COUNT,
+  enterPlaceholder,
+  phoneRegisterOptions,
+  selectPlaceholder,
+} from "@/lib/form-fields";
+import { applyServerFieldErrors } from "@/lib/form-action-errors";
 import type { UserBranchOption, UserDetail, UserRoleOption } from "@/types/user";
 import { createUserSchema, updateUserSchema, type CreateUserInput } from "@/validations/user";
 
@@ -57,9 +65,16 @@ interface UserFormDialogProps {
   isLoading?: boolean;
   branches: readonly UserBranchOption[];
   roles: readonly UserRoleOption[];
-  actorIsSuperAdmin: boolean;
+  /** Prefills Branch on Add user from the current workspace. */
+  defaultBranchPublicId?: string;
   onOpenChange: (open: boolean) => void;
-  onSuccess: (message: string) => void;
+  onSuccess: (message: string, credentials?: CreatedUserCredentials) => void;
+}
+
+export interface CreatedUserCredentials {
+  readonly email: string;
+  readonly loginUrl: string;
+  readonly temporaryPassword: string;
 }
 
 export function UserFormDialog({
@@ -69,17 +84,22 @@ export function UserFormDialog({
   isLoading = false,
   branches,
   roles,
-  actorIsSuperAdmin,
+  defaultBranchPublicId = "",
   onOpenChange,
   onSuccess,
 }: UserFormDialogProps) {
   const readOnly = mode === "view";
   const [formError, setFormError] = useState<string | null>(null);
 
-  const formValues = useMemo(
-    () => (mode === "create" || !detail ? EMPTY_VALUES : valuesFromDetail(detail)),
-    [mode, detail],
-  );
+  const formValues = useMemo(() => {
+    if (mode === "create" || !detail) {
+      return {
+        ...EMPTY_VALUES,
+        branchPublicId: defaultBranchPublicId,
+      };
+    }
+    return valuesFromDetail(detail);
+  }, [mode, detail, defaultBranchPublicId]);
 
   const branchOptions = useMemo(() => {
     const options = [...branches];
@@ -94,7 +114,8 @@ export function UserFormDialog({
   }, [branches, detail]);
 
   const roleOptions = useMemo(() => {
-    const visible = actorIsSuperAdmin ? [...roles] : roles.filter((role) => !role.isSuperAdmin);
+    // Super Admin is seeded, not assigned from the user form.
+    const visible = roles.filter((role) => !role.isSuperAdmin);
     if (detail && !visible.some((role) => role.publicId === detail.role.publicId)) {
       visible.push({
         publicId: detail.role.publicId,
@@ -104,7 +125,7 @@ export function UserFormDialog({
       });
     }
     return visible;
-  }, [actorIsSuperAdmin, detail, roles]);
+  }, [detail, roles]);
 
   const {
     register,
@@ -150,20 +171,28 @@ export function UserFormDialog({
 
     if (!result.success) {
       if (result.errors.length > 0) {
-        for (const fieldError of result.errors) {
-          if (fieldError.field && fieldError.field !== "root") {
-            setError(fieldError.field as keyof CreateUserInput, {
-              type: "server",
-              message: fieldError.message,
-            });
-          }
-        }
+        applyServerFieldErrors(result.errors, setError);
       }
       setFormError(result.message);
       return;
     }
 
-    onSuccess(result.message);
+    if (mode === "create" && "mailDelivered" in result.data) {
+      onSuccess(
+        result.data.mailDelivered === false && result.data.temporaryPassword
+          ? SUCCESS_MESSAGES.USER_WELCOME_LOCAL
+          : SUCCESS_MESSAGES.USER_WELCOME_SENT,
+        result.data.temporaryPassword
+          ? {
+              email: result.data.email,
+              loginUrl: result.data.loginUrl,
+              temporaryPassword: result.data.temporaryPassword,
+            }
+          : undefined,
+      );
+    } else {
+      onSuccess(result.message);
+    }
     onOpenChange(false);
   });
 
@@ -234,7 +263,7 @@ export function UserFormDialog({
               <Input
                 id="employeeCode"
                 autoComplete="off"
-                placeholder="Enter the employee code"
+                placeholder={enterPlaceholder("employee code")}
                 disabled={readOnly || isSubmitting}
                 aria-invalid={errors.employeeCode ? true : undefined}
                 {...register("employeeCode")}
@@ -245,7 +274,7 @@ export function UserFormDialog({
                 id="email"
                 type="email"
                 autoComplete="off"
-                placeholder="Enter the email"
+                placeholder={enterPlaceholder("email")}
                 disabled={readOnly || isSubmitting}
                 aria-invalid={errors.email ? true : undefined}
                 {...register("email")}
@@ -260,7 +289,7 @@ export function UserFormDialog({
               <Input
                 id="firstName"
                 autoComplete="off"
-                placeholder="Enter the first name"
+                placeholder={enterPlaceholder("first name")}
                 disabled={readOnly || isSubmitting}
                 aria-invalid={errors.firstName ? true : undefined}
                 {...register("firstName")}
@@ -275,7 +304,7 @@ export function UserFormDialog({
               <Input
                 id="lastName"
                 autoComplete="off"
-                placeholder="Enter the last name"
+                placeholder={enterPlaceholder("last name")}
                 disabled={readOnly || isSubmitting}
                 aria-invalid={errors.lastName ? true : undefined}
                 {...register("lastName")}
@@ -285,10 +314,12 @@ export function UserFormDialog({
               <Input
                 id="phone"
                 autoComplete="off"
-                placeholder="Enter the phone number"
+                placeholder={enterPlaceholder("phone number")}
+                inputMode="numeric"
+                maxLength={PHONE_DIGIT_COUNT}
                 disabled={readOnly || isSubmitting}
                 aria-invalid={errors.phone ? true : undefined}
-                {...register("phone")}
+                {...register("phone", phoneRegisterOptions)}
               />
             </FormField>
             <FormField htmlFor="joinDate" label="Join date" error={errors.joinDate?.message}>
@@ -325,7 +356,7 @@ export function UserFormDialog({
                         id="branchPublicId"
                         aria-invalid={errors.branchPublicId ? true : undefined}
                       >
-                        <SelectValue placeholder="Select branch">
+                        <SelectValue placeholder={selectPlaceholder("branch")}>
                           {selected ? selected.name : null}
                         </SelectValue>
                       </SelectTrigger>
@@ -363,7 +394,7 @@ export function UserFormDialog({
                         id="rolePublicId"
                         aria-invalid={errors.rolePublicId ? true : undefined}
                       >
-                        <SelectValue placeholder="Select role">
+                        <SelectValue placeholder={selectPlaceholder("role")}>
                           {selected ? selected.name : null}
                         </SelectValue>
                       </SelectTrigger>

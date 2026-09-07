@@ -4,6 +4,7 @@ import { Suspense, type ReactNode } from "react";
 
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { AuthShell } from "@/components/layout/auth-shell";
 import { NavigationProgress } from "@/components/layout/navigation-progress";
 import { PageContainer } from "@/components/layout/page-container";
 import { PermissionsProvider } from "@/components/providers/permissions-provider";
@@ -47,13 +48,18 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     redirect(loginHref(currentPath));
   }
 
-  // An account still on its generated password is confined to the change-password
-  // screen. Enforced in the layout so every authenticated route inherits it,
-  // rather than relying on each page to remember.
+  // First login with a temporary password: only the change-password screen,
+  // without the app sidebar or header.
   if (await requiresPasswordChange()) {
     if (currentPath !== ROUTES.CHANGE_PASSWORD) {
       redirect(ROUTES.CHANGE_PASSWORD);
     }
+
+    return (
+      <PermissionsProvider value={toPermissionSnapshot(actor)}>
+        <AuthShell>{children}</AuthShell>
+      </PermissionsProvider>
+    );
   }
 
   const navItems = filterNavigation(NAVIGATION, permissionChecker(actor));

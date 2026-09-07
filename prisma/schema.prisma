@@ -6,7 +6,7 @@
 //   - Case-insensitive uniqueness is enforced with a normalized lowercase companion
 //     column plus a unique index. A case-sensitive unique index on an email is not
 //     real uniqueness.
-//   - Soft delete (`deletedAt`) on Branch and User only, filtered explicitly by a
+//   - Soft delete (`deletedAt`) on Branch, User and Customer, filtered explicitly by a
 //     repository helper rather than a client extension.
 //   - Actor attribution lives in AuditLog rather than createdBy/updatedBy columns on
 //     every table, which avoids circular foreign keys between User and its masters.
@@ -146,7 +146,8 @@ model Organization {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  branches Branch[]
+  branches  Branch[]
+  customers Customer[]
 
   @@map("organizations")
 }
@@ -218,6 +219,7 @@ model Branch {
 
   users       User[]
   departments Department[]
+  customers   Customer[]
 
   // Scoped to the legal entity: two entities may legitimately both have a "HO".
   @@unique([entityId, codeNormalized])
@@ -227,6 +229,48 @@ model Branch {
   @@index([deletedAt])
   @@index([nameNormalized])
   @@map("branches")
+}
+
+model Customer {
+  id       Int    @id @default(autoincrement())
+  publicId String @unique @default(cuid(2)) @map("public_id")
+
+  organizationId Int          @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  branchId Int    @map("branch_id")
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  code           String @db.VarChar(32)
+  codeNormalized String @map("code_normalized") @db.VarChar(32)
+  name           String @db.VarChar(160)
+  nameNormalized String @map("name_normalized") @db.VarChar(160)
+
+  contactPerson String? @map("contact_person") @db.VarChar(120)
+  email         String? @db.VarChar(160)
+  phone         String? @db.VarChar(32)
+
+  addressLine1 String? @map("address_line1") @db.VarChar(240)
+  addressLine2 String? @map("address_line2") @db.VarChar(240)
+  city         String? @db.VarChar(80)
+  state        String? @db.VarChar(80)
+  postalCode   String? @map("postal_code") @db.VarChar(20)
+  country      String? @db.VarChar(80)
+  notes        String? @db.VarChar(500)
+
+  status RecordStatus @default(ACTIVE)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([organizationId])
+  @@index([branchId])
+  @@index([status])
+  @@index([deletedAt])
+  @@index([nameNormalized])
+  @@index([codeNormalized])
+  @@map("customers")
 }
 
 model Department {
@@ -346,13 +390,17 @@ model User {
   publicId String @unique @default(cuid(2)) @map("public_id")
 
   employeeCode           String @map("employee_code") @db.VarChar(32)
-  employeeCodeNormalized String @unique @map("employee_code_normalized") @db.VarChar(32)
+  /// Uniqueness for active rows is a partial index (see migrations). Soft-deleted
+  /// accounts must not block reuse of the same code.
+  employeeCodeNormalized String @map("employee_code_normalized") @db.VarChar(32)
 
   firstName String @map("first_name") @db.VarChar(80)
   lastName  String @map("last_name") @db.VarChar(80)
 
   email           String @db.VarChar(160)
-  emailNormalized String @unique @map("email_normalized") @db.VarChar(160)
+  /// Uniqueness for active rows is a partial index (see migrations). Soft-deleted
+  /// accounts must not block reuse of the same email.
+  emailNormalized String @map("email_normalized") @db.VarChar(160)
 
   passwordHash String  @map("password_hash")
   phone        String? @db.VarChar(32)

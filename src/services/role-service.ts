@@ -9,7 +9,7 @@ import {
   type RecordStatus,
 } from "@/constants/status";
 import { duplicateFieldError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
-import { normalizeSlug } from "@/lib/normalize";
+import { emptyToNull, normalizeSlug } from "@/lib/normalize";
 import {
   resolveAllowedValue,
   resolvePagination,
@@ -34,11 +34,6 @@ const ENTITY_TYPE = "Role";
 
 interface AuditMeta {
   readonly userAgent?: string | null;
-}
-
-function emptyToNull(value: string | null | undefined): string | null {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : null;
 }
 
 async function requireRole(publicId: string): Promise<RoleDetailRow> {

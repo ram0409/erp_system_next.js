@@ -59,6 +59,7 @@ import type { PermissionMatrixData } from "@/types/role-permissions";
 const GROUP_ICONS: Readonly<Record<PermissionGroupId, NavIconName>> = {
   dashboard: "dashboard",
   administration: "administration",
+  customer_management: "customer-management",
   settings: "settings",
 };
 
@@ -68,7 +69,11 @@ const MODULE_ICONS: Readonly<Record<PermissionModule, NavIconName>> = {
   roles: "roles",
   role_permissions: "permissions",
   branches: "branches",
+  customers: "customers",
   settings: "general-settings",
+  company_details: "company-details",
+  profile: "profile",
+  security: "security",
   audit_logs: "audit-logs",
 };
 

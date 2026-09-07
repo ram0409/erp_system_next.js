@@ -13,6 +13,7 @@ import {
   type RecordStatus,
 } from "@/constants/status";
 import { duplicateFieldError, ForbiddenError, InternalError, NotFoundError, ValidationError } from "@/lib/errors";
+import { emptyToNull } from "@/lib/normalize";
 import { resolveAllowedValue, resolvePagination, resolveSearchTerm, resolveSort } from "@/lib/pagination";
 import { buildLogoPublicPath, detectLogoExtension } from "@/lib/logo";
 import { deleteLogoFile, writeLogoFile } from "@/lib/logo-storage";
@@ -37,11 +38,6 @@ import type {
   UpdateBranchInput,
 } from "@/validations/branch";
 import type { Prisma } from "@generated/prisma/client";
-
-function emptyToNull(value: string | null | undefined): string | null {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : null;
-}
 
 const ENTITY_TYPE = "Branch";
 

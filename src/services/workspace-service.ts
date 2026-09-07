@@ -2,7 +2,7 @@ import "server-only";
 
 import { ERROR_MESSAGES } from "@/constants/messages";
 import { RECORD_STATUS } from "@/constants/status";
-import { ValidationError } from "@/lib/errors";
+import { ForbiddenError, ValidationError } from "@/lib/errors";
 import { setWorkspaceCookie } from "@/lib/workspace-cookie";
 import { getWorkspaceScope } from "@/lib/workspace-scope";
 import * as branchRepository from "@/repositories/branch-repository";
@@ -20,6 +20,15 @@ function assignedSelection(actor: ActorContext): WorkspaceSelection {
   };
 }
 
+function assignedBranchOption(actor: ActorContext): WorkspaceBranchOption {
+  return {
+    publicId: actor.user.branch.publicId,
+    code: actor.user.branch.code,
+    name: actor.user.branch.name,
+    logoUrl: null,
+  };
+}
+
 function mergeCurrent(
   actor: ActorContext,
   branches: WorkspaceBranchOption[],
@@ -27,18 +36,21 @@ function mergeCurrent(
   const assigned = actor.user.branch;
   const nextBranches = [...branches];
   if (!nextBranches.some((branch) => branch.publicId === assigned.publicId)) {
-    nextBranches.unshift({
-      publicId: assigned.publicId,
-      code: assigned.code,
-      name: assigned.name,
-      logoUrl: null,
-    });
+    nextBranches.unshift(assignedBranchOption(actor));
   }
 
   return nextBranches;
 }
 
 export async function getWorkspaceSwitcher(actor: ActorContext): Promise<WorkspaceSwitcher> {
+  // Non–Super Admin users only see (and work in) their assigned branch.
+  if (!actor.user.role.isSuperAdmin) {
+    return {
+      branches: [assignedBranchOption(actor)],
+      selected: assignedSelection(actor),
+    };
+  }
+
   const [rows, scope] = await Promise.all([
     branchRepository.listOptions(),
     getWorkspaceScope(),
@@ -61,7 +73,20 @@ export async function getWorkspaceSwitcher(actor: ActorContext): Promise<Workspa
   };
 }
 
-export async function setWorkspace(input: SetWorkspaceInput): Promise<WorkspaceSelection> {
+export async function setWorkspace(
+  input: SetWorkspaceInput,
+  actor: ActorContext,
+): Promise<WorkspaceSelection> {
+  if (!actor.user.role.isSuperAdmin) {
+    if (input.branchPublicId !== actor.user.branch.publicId) {
+      throw new ForbiddenError("You can only work in your assigned branch.");
+    }
+
+    const selected = assignedSelection(actor);
+    await setWorkspaceCookie(selected);
+    return selected;
+  }
+
   const branch = await branchRepository.findByPublicId(input.branchPublicId);
 
   if (!branch) {

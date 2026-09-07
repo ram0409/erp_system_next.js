@@ -47,10 +47,9 @@ export function AuditLogsWorkspace({ items, meta, isFiltered }: AuditLogsWorkspa
         cell: (row) => (
           <div className="min-w-0">
             <p className="text-foreground truncate text-sm">{row.summary ?? row.actionLabel}</p>
-            <p className="text-muted-foreground truncate text-xs">
-              {row.entityType}
-              {row.entityPublicId ? ` · ${row.entityPublicId}` : ""}
-            </p>
+            {row.entityType ? (
+              <p className="text-muted-foreground truncate text-xs">{row.entityType}</p>
+            ) : null}
           </div>
         ),
       },

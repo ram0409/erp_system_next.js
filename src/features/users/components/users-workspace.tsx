@@ -30,12 +30,26 @@ import {
   getUserAction,
   sendUserPasswordResetAction,
 } from "@/features/users/actions";
-import { UserFormDialog, type UserFormMode } from "@/features/users/components/user-form-dialog";
+import {
+  UserFormDialog,
+  type CreatedUserCredentials,
+  type UserFormMode,
+} from "@/features/users/components/user-form-dialog";
 import { useTableParams } from "@/hooks/use-table-params";
 import { cn } from "@/lib/utils";
 import type { PaginationMeta } from "@/types/pagination";
 import type { UserAssignmentOptions, UserDetail, UserListItem } from "@/types/user";
 import { EMPTY_VALUE_PLACEHOLDER, formatDateTime, formatFullName } from "@/utils/format";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface UsersWorkspaceProps {
   readonly items: readonly UserListItem[];
@@ -44,6 +58,7 @@ interface UsersWorkspaceProps {
   readonly actorUserPublicId: string;
   readonly actorIsSuperAdmin: boolean;
   readonly options: UserAssignmentOptions;
+  readonly workspaceBranchPublicId: string;
   readonly exportFilters: {
     readonly search?: string;
     readonly status?: UserListItem["status"];
@@ -76,6 +91,7 @@ export function UsersWorkspace({
   actorUserPublicId,
   actorIsSuperAdmin,
   options,
+  workspaceBranchPublicId,
   exportFilters,
 }: UsersWorkspaceProps) {
   const router = useRouter();
@@ -86,6 +102,9 @@ export function UsersWorkspace({
   const [detail, setDetail] = useState<UserDetail | null>(null);
   const [detailPending, setDetailPending] = useState(false);
   const [pending, setPending] = useState<PendingConfirm | null>(null);
+  const [createdCredentials, setCreatedCredentials] = useState<CreatedUserCredentials | null>(
+    null,
+  );
 
   async function openForm(mode: UserFormMode, publicId?: string) {
     setFormMode(mode);
@@ -111,9 +130,21 @@ export function UsersWorkspace({
     setDetailPending(false);
   }
 
-  function handleFormSuccess(message: string) {
+  function handleFormSuccess(message: string, credentials?: CreatedUserCredentials) {
     toast.success(message);
+    if (credentials) {
+      setCreatedCredentials(credentials);
+    }
     router.refresh();
+  }
+
+  async function copyText(value: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(`${label} copied`);
+    } catch {
+      toast.error(`Could not copy ${label.toLowerCase()}`);
+    }
   }
 
   function handleExport() {
@@ -357,7 +388,7 @@ export function UsersWorkspace({
         isLoading={detailPending}
         branches={options.branches}
         roles={options.roles}
-        actorIsSuperAdmin={actorIsSuperAdmin}
+        defaultBranchPublicId={workspaceBranchPublicId}
         onOpenChange={setFormOpen}
         onSuccess={handleFormSuccess}
       />
@@ -375,6 +406,79 @@ export function UsersWorkspace({
         variant={confirmCopy?.variant}
         onConfirm={runPendingConfirm}
       />
+
+      <Dialog
+        open={createdCredentials !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCreatedCredentials(null);
+          }
+        }}
+      >
+        <DialogContent size="sm">
+          <DialogHeader>
+            <DialogTitle>Temporary sign-in details</DialogTitle>
+            <DialogDescription>
+              SMTP is not configured on this machine, so no email was sent. Copy these details and
+              share them with the user.
+            </DialogDescription>
+          </DialogHeader>
+          {createdCredentials ? (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="created-user-email">Email</Label>
+                <div className="flex gap-2">
+                  <Input id="created-user-email" readOnly value={createdCredentials.email} />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void copyText(createdCredentials.email, "Email")}
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="created-user-password">Temporary password</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="created-user-password"
+                    readOnly
+                    value={createdCredentials.temporaryPassword}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      void copyText(createdCredentials.temporaryPassword, "Password")
+                    }
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="created-user-login">Sign-in link</Label>
+                <div className="flex gap-2">
+                  <Input id="created-user-login" readOnly value={createdCredentials.loginUrl} />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void copyText(createdCredentials.loginUrl, "Link")}
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" onClick={() => setCreatedCredentials(null)}>
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

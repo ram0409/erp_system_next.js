@@ -15,6 +15,8 @@ import { logger } from "@/lib/logger";
  * need a mailbox. Production never logs secrets: a reset URL is a capability.
  */
 
+export type MailDelivery = "delivered" | "logged" | "failed";
+
 export interface PasswordResetMail {
   readonly to: string;
   readonly resetUrl: string;
@@ -39,7 +41,6 @@ interface TextMail {
   readonly subject: string;
   readonly text: string;
   readonly kind: string;
-  readonly developmentExtra?: Record<string, unknown>;
 }
 
 function smtpTransport() {
@@ -72,18 +73,32 @@ function parseSender(from: string): { readonly name?: string; readonly email: st
   return name ? { name, email } : { email };
 }
 
-async function sendTextEmail(mail: TextMail): Promise<boolean> {
+function logDevelopmentMail(mail: TextMail): void {
+  const lines = [
+    "",
+    `========== ${mail.kind} (SMTP not configured) ==========`,
+    `To: ${mail.to}`,
+    `Subject: ${mail.subject}`,
+    "",
+    mail.text,
+    "=======================================================",
+    "",
+  ];
+  console.warn(lines.join("\n"));
+}
+
+async function sendTextEmail(mail: TextMail): Promise<MailDelivery> {
   if (!isMailConfigured) {
     if (isDevelopment) {
-      logger.info(`${mail.kind} (SMTP is not configured)`, {
+      logDevelopmentMail(mail);
+      logger.info(`${mail.kind} logged to console because SMTP is not configured`, {
         to: mail.to,
-        ...mail.developmentExtra,
       });
-      return true;
+      return "logged";
     }
 
     logger.error(`${mail.kind} skipped because SMTP is not configured`, { to: mail.to });
-    return false;
+    return "failed";
   }
 
   try {
@@ -111,10 +126,10 @@ async function sendTextEmail(mail: TextMail): Promise<boolean> {
           status: response.status,
           body: await response.text(),
         });
-        return false;
+        return "failed";
       }
 
-      return true;
+      return "delivered";
     }
 
     await smtpTransport().sendMail({
@@ -123,11 +138,15 @@ async function sendTextEmail(mail: TextMail): Promise<boolean> {
       subject: mail.subject,
       text: mail.text,
     });
-    return true;
+    return "delivered";
   } catch (error) {
     logger.error(`${mail.kind} failed`, { to: mail.to, error });
-    return false;
+    return "failed";
   }
+}
+
+function deliveredOrLogged(delivery: MailDelivery): boolean {
+  return delivery === "delivered" || delivery === "logged";
 }
 
 export async function sendPasswordResetEmail(mail: PasswordResetMail): Promise<boolean> {
@@ -141,13 +160,14 @@ export async function sendPasswordResetEmail(mail: PasswordResetMail): Promise<b
     "If you did not request this, you can ignore the message. Your password stays the same.",
   ].join("\n");
 
-  return sendTextEmail({
-    to: mail.to,
-    subject,
-    text,
-    kind: "Password reset mail",
-    developmentExtra: { resetUrl: mail.resetUrl },
-  });
+  return deliveredOrLogged(
+    await sendTextEmail({
+      to: mail.to,
+      subject,
+      text,
+      kind: "Password reset mail",
+    }),
+  );
 }
 
 export async function sendAccountDeactivatedEmail(mail: AccountDeactivatedMail): Promise<boolean> {
@@ -162,15 +182,17 @@ export async function sendAccountDeactivatedEmail(mail: AccountDeactivatedMail):
     "Contact your administrator if you still need access.",
   ].join("\n");
 
-  return sendTextEmail({
-    to: mail.to,
-    subject: `${appName} account deactivated`,
-    text,
-    kind: "Account deactivated mail",
-  });
+  return deliveredOrLogged(
+    await sendTextEmail({
+      to: mail.to,
+      subject: `${appName} account deactivated`,
+      text,
+      kind: "Account deactivated mail",
+    }),
+  );
 }
 
-export async function sendAccountWelcomeEmail(mail: AccountWelcomeMail): Promise<boolean> {
+export async function sendAccountWelcomeEmail(mail: AccountWelcomeMail): Promise<MailDelivery> {
   const appName = publicEnv.NEXT_PUBLIC_APP_NAME;
   const greeting = mail.recipientName.trim() ? `Hello ${mail.recipientName.trim()},` : "Hello,";
   const text = [
@@ -195,7 +217,6 @@ export async function sendAccountWelcomeEmail(mail: AccountWelcomeMail): Promise
     subject: `${appName} account created`,
     text,
     kind: "Account welcome mail",
-    developmentExtra: { loginUrl: mail.loginUrl, temporaryPassword: mail.temporaryPassword },
   });
 }
 
@@ -224,11 +245,12 @@ export async function sendTwoFactorOtpEmail(mail: TwoFactorOtpMail): Promise<boo
     "If you did not request this, change your password and contact your administrator.",
   ].join("\n");
 
-  return sendTextEmail({
-    to: mail.to,
-    subject: `${appName} verification code`,
-    text,
-    kind: "Two-factor OTP mail",
-    developmentExtra: { code: mail.code, purpose: mail.purpose },
-  });
+  return deliveredOrLogged(
+    await sendTextEmail({
+      to: mail.to,
+      subject: `${appName} verification code`,
+      text,
+      kind: "Two-factor OTP mail",
+    }),
+  );
 }

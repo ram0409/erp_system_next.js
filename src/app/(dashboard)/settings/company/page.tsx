@@ -13,7 +13,7 @@ import { getOrganizationSettings } from "@/services/settings-service";
 export const metadata: Metadata = { title: "Company Details" };
 
 export default async function CompanyDetailsPage() {
-  const access = await requirePageAccess(PERMISSIONS.SETTINGS.VIEW);
+  const access = await requirePageAccess(PERMISSIONS.COMPANY_DETAILS.VIEW);
 
   if (!access.allowed) {
     return (
@@ -24,7 +24,7 @@ export default async function CompanyDetailsPage() {
   }
 
   const settings = await getOrganizationSettings();
-  const canEdit = hasAllPermissions(access.actor, [PERMISSIONS.SETTINGS.EDIT]);
+  const canEdit = hasAllPermissions(access.actor, [PERMISSIONS.COMPANY_DETAILS.EDIT]);
 
   return (
     <PageContainer>

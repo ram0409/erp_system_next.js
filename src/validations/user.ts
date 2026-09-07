@@ -2,6 +2,9 @@ import { z } from "zod";
 
 import { RECORD_STATUS_VALUES } from "@/constants/status";
 import { emailSchema } from "@/validations/auth";
+import { entityCodeField, optionalPhoneField, publicIdSchema } from "@/validations/fields";
+
+export { publicIdSchema };
 
 /**
  * Shared by the user form and the server actions. Assignment fields are public
@@ -9,36 +12,14 @@ import { emailSchema } from "@/validations/auth";
  * sequential primary key.
  */
 
-export const publicIdSchema = z
-  .string()
-  .trim()
-  .min(8, "The requested record could not be found.")
-  .max(32, "The requested record could not be found.");
-
-const employeeCodeSchema = z
-  .string()
-  .trim()
-  .min(1, "Employee code is required")
-  .max(32, "Employee code is too long")
-  .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/, "Use letters, numbers, dots, hyphens or underscores only");
-
 const personNameSchema = z
   .string()
   .trim()
   .min(1, "This field is required")
   .max(80, "This field is too long");
 
-function optionalText(max: number, tooLong: string) {
-  return z.string().trim().max(max, tooLong);
-}
-
-const optionalPhoneField = optionalText(32, "Phone number is too long").refine(
-  (value) => value === "" || /^[+\d][\d\s().-]*$/.test(value),
-  "Enter a valid phone number",
-);
-
 const userFieldsSchema = z.object({
-  employeeCode: employeeCodeSchema,
+  employeeCode: entityCodeField("Employee code"),
   firstName: personNameSchema,
   lastName: personNameSchema,
   email: emailSchema,

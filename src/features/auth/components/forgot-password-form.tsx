@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { forgotPasswordAction } from "@/features/auth/actions";
+import { enterPlaceholder } from "@/lib/form-fields";
 import { forgotPasswordSchema, type ForgotPasswordInput } from "@/validations/auth";
 
 /**
@@ -77,7 +78,7 @@ export function ForgotPasswordForm() {
           id="email"
           type="email"
           autoComplete="username"
-          placeholder="Enter the email address"
+          placeholder={enterPlaceholder("email address")}
           className="auth-field"
           autoFocus
           aria-invalid={errors.email ? true : undefined}

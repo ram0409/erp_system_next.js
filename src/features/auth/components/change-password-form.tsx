@@ -7,8 +7,8 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { FormField } from "@/components/forms/form-field";
+import { PasswordInput } from "@/components/forms/password-input";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import {
   getPasswordPolicyRules,
@@ -16,6 +16,7 @@ import {
   type PasswordPolicyId,
 } from "@/constants/password-policy";
 import { changePasswordAction } from "@/features/auth/actions";
+import { enterPlaceholder } from "@/lib/form-fields";
 import { createChangePasswordSchema, type ChangePasswordInput } from "@/validations/auth";
 
 interface ChangePasswordFormProps {
@@ -69,7 +70,11 @@ export function ChangePasswordForm({ forced = false, policy }: ChangePasswordFor
       }
 
       reset();
-      toast.success(result.message);
+      toast.success(
+        forced
+          ? "Password updated. Sign in with your new password."
+          : result.message,
+      );
       router.refresh();
       router.replace(result.data.redirectTo);
     });
@@ -82,7 +87,7 @@ export function ChangePasswordForm({ forced = false, policy }: ChangePasswordFor
           role="status"
           className="border-warning/30 bg-warning/8 text-foreground rounded-xl border px-3 py-2 text-sm"
         >
-          Your account uses a temporary password. Choose a new one to continue.
+          Your account uses a temporary password. Choose a new one, then sign in again.
         </div>
       ) : null}
 
@@ -101,11 +106,10 @@ export function ChangePasswordForm({ forced = false, policy }: ChangePasswordFor
         required
         error={errors.currentPassword?.message}
       >
-        <Input
+        <PasswordInput
           id="currentPassword"
-          type="password"
           autoComplete="current-password"
-          placeholder="Enter the current password"
+          placeholder={enterPlaceholder("current password")}
           aria-invalid={errors.currentPassword ? true : undefined}
           disabled={isPending}
           {...register("currentPassword")}
@@ -119,11 +123,10 @@ export function ChangePasswordForm({ forced = false, policy }: ChangePasswordFor
         error={errors.newPassword?.message}
         hint={hint}
       >
-        <Input
+        <PasswordInput
           id="newPassword"
-          type="password"
           autoComplete="new-password"
-          placeholder="Enter the new password"
+          placeholder={enterPlaceholder("new password")}
           aria-invalid={errors.newPassword ? true : undefined}
           disabled={isPending}
           {...register("newPassword")}
@@ -136,20 +139,25 @@ export function ChangePasswordForm({ forced = false, policy }: ChangePasswordFor
         required
         error={errors.confirmPassword?.message}
       >
-        <Input
+        <PasswordInput
           id="confirmPassword"
-          type="password"
           autoComplete="new-password"
-          placeholder="Confirm the new password"
+          placeholder={enterPlaceholder("confirm new password")}
           aria-invalid={errors.confirmPassword ? true : undefined}
           disabled={isPending}
           {...register("confirmPassword")}
         />
       </FormField>
 
-      <p className="text-muted-foreground text-xs">
-        Changing your password signs out your other sessions.
-      </p>
+      {forced ? (
+        <p className="text-muted-foreground text-xs">
+          After you save, you will return to the sign-in page.
+        </p>
+      ) : (
+        <p className="text-muted-foreground text-xs">
+          Changing your password signs out your other sessions.
+        </p>
+      )}
 
       <Button type="submit" className="w-full" disabled={isPending}>
         {isPending ? <Spinner label="Saving" /> : null}
