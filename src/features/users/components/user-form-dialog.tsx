@@ -26,7 +26,7 @@ import {
   selectPlaceholder,
 } from "@/lib/form-fields";
 import { applyServerFieldErrors } from "@/lib/form-action-errors";
-import type { UserBranchOption, UserDetail, UserRoleOption } from "@/types/user";
+import type { CreateUserResult, UserBranchOption, UserDetail, UserRoleOption } from "@/types/user";
 import { createUserSchema, updateUserSchema, type CreateUserInput } from "@/validations/user";
 
 const EMPTY_VALUES: CreateUserInput = {
@@ -154,20 +154,33 @@ export function UserFormDialog({
     }
     setFormError(null);
 
-    const result =
-      mode === "edit" && detail
-        ? await updateUserAction({
-            publicId: detail.publicId,
-            employeeCode: values.employeeCode,
-            firstName: values.firstName,
-            lastName: values.lastName,
-            email: values.email,
-            phone: values.phone,
-            joinDate: values.joinDate,
-            branchPublicId: values.branchPublicId,
-            rolePublicId: values.rolePublicId,
-          })
-        : await createUserAction(values);
+    if (mode === "edit" && detail) {
+      const result = await updateUserAction({
+        publicId: detail.publicId,
+        employeeCode: values.employeeCode,
+        firstName: values.firstName,
+        lastName: values.lastName,
+        email: values.email,
+        phone: values.phone,
+        joinDate: values.joinDate,
+        branchPublicId: values.branchPublicId,
+        rolePublicId: values.rolePublicId,
+      });
+
+      if (!result.success) {
+        if (result.errors.length > 0) {
+          applyServerFieldErrors(result.errors, setError);
+        }
+        setFormError(result.message);
+        return;
+      }
+
+      onSuccess(result.message);
+      onOpenChange(false);
+      return;
+    }
+
+    const result = await createUserAction(values);
 
     if (!result.success) {
       if (result.errors.length > 0) {
@@ -177,22 +190,19 @@ export function UserFormDialog({
       return;
     }
 
-    if (mode === "create" && "mailDelivered" in result.data) {
-      onSuccess(
-        result.data.mailDelivered === false && result.data.temporaryPassword
-          ? SUCCESS_MESSAGES.USER_WELCOME_LOCAL
-          : SUCCESS_MESSAGES.USER_WELCOME_SENT,
-        result.data.temporaryPassword
-          ? {
-              email: result.data.email,
-              loginUrl: result.data.loginUrl,
-              temporaryPassword: result.data.temporaryPassword,
-            }
-          : undefined,
-      );
-    } else {
-      onSuccess(result.message);
-    }
+    const created = result.data as CreateUserResult;
+    onSuccess(
+      created.mailDelivered === false && created.temporaryPassword
+        ? SUCCESS_MESSAGES.USER_WELCOME_LOCAL
+        : SUCCESS_MESSAGES.USER_WELCOME_SENT,
+      created.temporaryPassword
+        ? {
+            email: created.email,
+            loginUrl: created.loginUrl,
+            temporaryPassword: created.temporaryPassword,
+          }
+        : undefined,
+    );
     onOpenChange(false);
   });
 
