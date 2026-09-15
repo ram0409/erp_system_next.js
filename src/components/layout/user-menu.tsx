@@ -29,24 +29,28 @@ export function UserMenu({ user, onSignOut }: UserMenuProps) {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="hover:bg-accent focus-visible:ring-ring flex items-center gap-2 rounded-md py-1 pr-1.5 pl-1 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+          className="hover:bg-sidebar-accent focus-visible:ring-sidebar-accent-foreground/40 flex items-center gap-2 rounded-lg px-2 py-1 text-white transition-colors focus-visible:ring-2 focus-visible:outline-none"
           aria-label="Open user menu"
         >
-          <Avatar>
+          <Avatar className="size-5">
             {user.avatarUrl ? <AvatarImage src={user.avatarUrl} alt={fullName} /> : null}
-            <AvatarFallback>{getInitials(user.firstName, user.lastName)}</AvatarFallback>
+            <AvatarFallback className="bg-primary text-primary-foreground text-[0.625rem]">
+              {getInitials(user.firstName, user.lastName)}
+            </AvatarFallback>
           </Avatar>
-          <span className="hidden text-left sm:block">
-            <span className="block max-w-36 truncate text-sm font-medium">{fullName}</span>
-            <span className="text-muted-foreground block max-w-36 truncate text-xs">
+          <span className="hidden min-w-0 text-left sm:block">
+            <span className="block max-w-36 truncate text-sm font-medium tracking-tight text-white">
+              {fullName}
+            </span>
+            <span className="block max-w-36 truncate text-xs text-white/70">
               {user.role.name}
             </span>
           </span>
-          <ChevronDownIcon className="text-muted-foreground size-4" aria-hidden="true" />
+          <ChevronDownIcon className="size-4 shrink-0 text-white/70" aria-hidden="true" />
         </button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent className="w-60">
+      <DropdownMenuContent className="w-60" align="end">
         <DropdownMenuLabel>
           <span className="text-foreground block truncate text-sm font-medium">{fullName}</span>
           <span className="text-muted-foreground block truncate text-xs font-normal">

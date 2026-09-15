@@ -12,8 +12,8 @@
     "unrs-resolver@1.12.2": true
   },
   "scripts": {
+    "build": "node ./scripts/run-build.mjs",
     "dev": "node --max-old-space-size=8192 ./node_modules/next/dist/bin/next dev",
-    "build": "node --max-old-space-size=8192 ./node_modules/next/dist/bin/next build",
     "start": "next start",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
