@@ -26,7 +26,7 @@ import { formatDateTime } from "@/utils/format";
 
 const EMPTY_FEED: NotificationFeed = { unreadCount: 0, items: [] };
 
-export function NotificationBell() {
+export function NotificationBell({ className }: { readonly className?: string }) {
   const router = useRouter();
   const [feed, setFeed] = useState<NotificationFeed>(EMPTY_FEED);
   const [open, setOpen] = useState(false);
@@ -122,7 +122,12 @@ export function NotificationBell() {
   return (
     <DropdownMenu open={open} onOpenChange={handleOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Notifications" className="relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Notifications"
+          className={cn("relative", className)}
+        >
           <BellIcon />
           {feed.unreadCount > 0 ? (
             <span className="bg-destructive text-destructive-foreground absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold">

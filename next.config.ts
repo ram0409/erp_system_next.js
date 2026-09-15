@@ -24,6 +24,8 @@ const nextConfig: NextConfig = {
     // client cache plus full link prefetch makes the next visit feel instant.
     staleTimes: { dynamic: 30 },
     transitionIndicator: true,
+    // Keep page-data workers low so Windows builds do not OOM.
+    cpus: 2,
   },
   // Native / driver packages must load through Node, not the Turbopack bundle.
   // Missing this is a common cause of INTERNAL_ERROR on the first database write

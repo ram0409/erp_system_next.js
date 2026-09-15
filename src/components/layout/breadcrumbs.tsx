@@ -48,28 +48,31 @@ export function Breadcrumbs() {
         <li className="flex items-center gap-1.5">
           <Link
             href={ROUTES.DASHBOARD}
-            className="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded-sm text-[13px] transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            className="app-chrome-crumb rounded-sm text-[13px] text-white transition-colors focus-visible:ring-2 focus-visible:outline-none"
           >
             Home
           </Link>
-          <ChevronRightIcon className="text-muted-foreground/60 size-3.5" aria-hidden="true" />
+          <ChevronRightIcon className="app-chrome-crumb-sep size-3.5 text-white/60" aria-hidden="true" />
         </li>
         {crumbs.map((crumb) => (
           <li key={crumb.href} className="flex min-w-0 items-center gap-1.5">
             {crumb.isLast ? (
-              <span aria-current="page" className="text-foreground truncate font-medium">
+              <span
+                aria-current="page"
+                className="app-chrome-crumb-current truncate font-medium text-white"
+              >
                 {crumb.label}
               </span>
             ) : (
               <>
                 <Link
                   href={crumb.href}
-                  className="text-muted-foreground hover:text-foreground focus-visible:ring-ring truncate rounded-sm text-[13px] transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                  className="app-chrome-crumb truncate rounded-sm text-[13px] text-white transition-colors focus-visible:ring-2 focus-visible:outline-none"
                 >
                   {crumb.label}
                 </Link>
                 <ChevronRightIcon
-                  className="text-muted-foreground/60 size-3.5 shrink-0"
+                  className="app-chrome-crumb-sep size-3.5 shrink-0 text-white/60"
                   aria-hidden="true"
                 />
               </>

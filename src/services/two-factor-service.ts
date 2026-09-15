@@ -4,14 +4,15 @@ import type { TwoFactorMethod } from "@generated/prisma/enums";
 
 import {
   TWO_FACTOR_CODE_TTL_MINUTES,
-  TWO_FACTOR_EMAIL_RESEND_COOLDOWN_SECONDS,
   TWO_FACTOR_MAX_ATTEMPTS,
+  TWO_FACTOR_PENDING_MAX_AGE_SECONDS,
 } from "@/constants/two-factor";
 import { ERROR_MESSAGES } from "@/constants/messages";
-import { AUDIT_ACTIONS } from "@/constants/status";
+import { AUDIT_ACTIONS, RECORD_STATUS } from "@/constants/status";
 import { ForbiddenError, UnauthorizedError, ValidationError } from "@/lib/errors";
 import { sealField, unsealField } from "@/lib/field-encryption";
 import { sendTwoFactorOtpEmail } from "@/lib/mail";
+import { maskPhone, sendTwoFactorOtpSms, toE164Phone } from "@/lib/sms";
 import {
   buildAuthenticatorUri,
   createAuthenticatorQrDataUrl,
@@ -41,6 +42,24 @@ function challengeExpiresAt(from: Date = new Date()): Date {
   return new Date(from.getTime() + TWO_FACTOR_CODE_TTL_MINUTES * 60_000);
 }
 
+function authenticatorChallengeExpiresAt(from: Date = new Date()): Date {
+  return new Date(from.getTime() + TWO_FACTOR_PENDING_MAX_AGE_SECONDS * 1_000);
+}
+
+function isWithinLoginPendingWindow(createdAt: Date): boolean {
+  return Date.now() - createdAt.getTime() < TWO_FACTOR_PENDING_MAX_AGE_SECONDS * 1_000;
+}
+
+async function requireLoginChallenge(challengePublicId: string): Promise<ActiveChallenge> {
+  const challenge = await twoFactorRepository.findLoginByPublicId(challengePublicId);
+
+  if (!challenge || !isWithinLoginPendingWindow(challenge.createdAt)) {
+    throw new UnauthorizedError(ERROR_MESSAGES.TWO_FACTOR_EXPIRED);
+  }
+
+  return challenge;
+}
+
 export function maskEmail(email: string): string {
   const [local, domain] = email.split("@");
   if (!local || !domain) {
@@ -53,11 +72,15 @@ export function maskEmail(email: string): string {
 
 function enabledMethods(settings: {
   emailOtpEnabledAt: Date | null;
+  smsOtpEnabledAt: Date | null;
   totpEnabledAt: Date | null;
 }): TwoFactorMethodId[] {
   const methods: TwoFactorMethodId[] = [];
   if (settings.emailOtpEnabledAt) {
     methods.push("EMAIL");
+  }
+  if (settings.smsOtpEnabledAt) {
+    methods.push("SMS");
   }
   if (settings.totpEnabledAt) {
     methods.push("AUTHENTICATOR");
@@ -66,7 +89,23 @@ function enabledMethods(settings: {
 }
 
 function defaultLoginMethod(methods: readonly TwoFactorMethodId[]): TwoFactorMethodId {
-  return methods.includes("AUTHENTICATOR") ? "AUTHENTICATOR" : "EMAIL";
+  if (methods.includes("AUTHENTICATOR")) {
+    return "AUTHENTICATOR";
+  }
+  if (methods.includes("SMS")) {
+    return "SMS";
+  }
+  return "EMAIL";
+}
+
+function requireUserPhone(phone: string | null | undefined): string {
+  const value = phone?.trim() ?? "";
+  if (!value || !toE164Phone(value)) {
+    throw new ValidationError(
+      "Add a valid phone number on your profile before enabling SMS one-time passwords.",
+    );
+  }
+  return value;
 }
 
 function toSessionUser(user: ActiveChallenge["user"]): SessionUser {
@@ -89,9 +128,10 @@ function sealedAuthenticatorSecret(challenge: ActiveChallenge): string | null {
 
 export function userRequiresTwoFactor(user: {
   emailOtpEnabledAt: Date | null;
+  smsOtpEnabledAt: Date | null;
   totpEnabledAt: Date | null;
 }): boolean {
-  return Boolean(user.emailOtpEnabledAt || user.totpEnabledAt);
+  return Boolean(user.emailOtpEnabledAt || user.smsOtpEnabledAt || user.totpEnabledAt);
 }
 
 export async function getTwoFactorStatus(actor: ActorContext): Promise<TwoFactorStatus> {
@@ -103,8 +143,11 @@ export async function getTwoFactorStatus(actor: ActorContext): Promise<TwoFactor
 
   return {
     emailOtpEnabled: Boolean(settings.emailOtpEnabledAt),
+    smsOtpEnabled: Boolean(settings.smsOtpEnabledAt),
     authenticatorEnabled: Boolean(settings.totpEnabledAt),
     email: settings.email,
+    phone: settings.phone,
+    phoneMasked: settings.phone ? maskPhone(settings.phone) : null,
   };
 }
 
@@ -113,7 +156,7 @@ async function createEmailChallenge(input: {
   email: string;
   purpose: "LOGIN" | "ENROLL" | "DISABLE";
   mailPurpose: "sign-in" | "enrolment" | "disable";
-}): Promise<{ publicId: string; method: TwoFactorMethod }> {
+}): Promise<{ publicId: string; method: TwoFactorMethod; expiresAt: Date }> {
   const code = generateEmailOtpCode();
   const sent = await sendTwoFactorOtpEmail({
     to: input.email,
@@ -136,6 +179,35 @@ async function createEmailChallenge(input: {
   });
 }
 
+async function createSmsChallenge(input: {
+  userId: number;
+  phone: string;
+  purpose: "LOGIN" | "ENROLL" | "DISABLE";
+  smsPurpose: "sign-in" | "enrolment" | "disable";
+}): Promise<{ publicId: string; method: TwoFactorMethod; expiresAt: Date }> {
+  const phone = requireUserPhone(input.phone);
+  const code = generateEmailOtpCode();
+  const sent = await sendTwoFactorOtpSms({
+    to: phone,
+    code,
+    purpose: input.smsPurpose,
+  });
+
+  if (!sent) {
+    throw new ValidationError("The verification SMS could not be sent. Try again later.");
+  }
+
+  await twoFactorRepository.invalidatePendingForUser(input.userId, input.purpose);
+
+  return twoFactorRepository.create({
+    userId: input.userId,
+    purpose: input.purpose,
+    method: "SMS",
+    codeHash: hashEmailOtpCode(code),
+    expiresAt: challengeExpiresAt(),
+  });
+}
+
 async function assertChallengeCode(challenge: ActiveChallenge, code: string): Promise<void> {
   if (challenge.failedAttempts >= TWO_FACTOR_MAX_ATTEMPTS) {
     throw new UnauthorizedError(ERROR_MESSAGES.TWO_FACTOR_INVALID);
@@ -143,7 +215,7 @@ async function assertChallengeCode(challenge: ActiveChallenge, code: string): Pr
 
   let valid = false;
 
-  if (challenge.method === "EMAIL") {
+  if (challenge.method === "EMAIL" || challenge.method === "SMS") {
     valid = challenge.codeHash ? verifyEmailOtpCode(code, challenge.codeHash) : false;
   } else {
     const sealed = sealedAuthenticatorSecret(challenge);
@@ -172,10 +244,30 @@ async function assertChallengeCode(challenge: ActiveChallenge, code: string): Pr
   }
 }
 
+function toLoginChallengeSummary(input: {
+  challengePublicId: string;
+  method: TwoFactorMethodId;
+  availableMethods: readonly TwoFactorMethodId[];
+  email: string;
+  phone: string | null;
+  expiresAt: Date;
+}): LoginTwoFactorChallenge {
+  return {
+    challengePublicId: input.challengePublicId,
+    method: input.method,
+    availableMethods: input.availableMethods,
+    emailMasked: maskEmail(input.email),
+    phoneMasked: input.phone ? maskPhone(input.phone) : null,
+    expiresAt: input.expiresAt.toISOString(),
+  };
+}
+
 export async function beginLoginChallenge(input: {
   userId: number;
   email: string;
+  phone: string | null;
   emailOtpEnabledAt: Date | null;
+  smsOtpEnabledAt: Date | null;
   totpEnabledAt: Date | null;
 }): Promise<LoginTwoFactorChallenge> {
   const availableMethods = enabledMethods(input);
@@ -186,41 +278,47 @@ export async function beginLoginChallenge(input: {
 
   const method = defaultLoginMethod(availableMethods);
 
-  const challenge =
-    method === "EMAIL"
-      ? await createEmailChallenge({
-          userId: input.userId,
-          email: input.email,
-          purpose: "LOGIN",
-          mailPurpose: "sign-in",
-        })
-      : await (async () => {
-          await twoFactorRepository.invalidatePendingForUser(input.userId, "LOGIN");
-          return twoFactorRepository.create({
-            userId: input.userId,
-            purpose: "LOGIN",
-            method: "AUTHENTICATOR",
-            expiresAt: challengeExpiresAt(),
-          });
-        })();
+  let challenge: { publicId: string; method: TwoFactorMethod; expiresAt: Date };
 
-  return {
+  if (method === "EMAIL") {
+    challenge = await createEmailChallenge({
+      userId: input.userId,
+      email: input.email,
+      purpose: "LOGIN",
+      mailPurpose: "sign-in",
+    });
+  } else if (method === "SMS") {
+    challenge = await createSmsChallenge({
+      userId: input.userId,
+      phone: input.phone ?? "",
+      purpose: "LOGIN",
+      smsPurpose: "sign-in",
+    });
+  } else {
+    await twoFactorRepository.invalidatePendingForUser(input.userId, "LOGIN");
+    challenge = await twoFactorRepository.create({
+      userId: input.userId,
+      purpose: "LOGIN",
+      method: "AUTHENTICATOR",
+      expiresAt: authenticatorChallengeExpiresAt(),
+    });
+  }
+
+  return toLoginChallengeSummary({
     challengePublicId: challenge.publicId,
     method: challenge.method as TwoFactorMethodId,
     availableMethods,
-    emailMasked: maskEmail(input.email),
-  };
+    email: input.email,
+    phone: input.phone,
+    expiresAt: challenge.expiresAt,
+  });
 }
 
 export async function switchLoginMethod(
   challengePublicId: string,
   method: TwoFactorMethodId,
 ): Promise<LoginTwoFactorChallenge> {
-  const challenge = await twoFactorRepository.findActiveByPublicId(challengePublicId);
-
-  if (!challenge || challenge.purpose !== "LOGIN") {
-    throw new UnauthorizedError(ERROR_MESSAGES.TWO_FACTOR_EXPIRED);
-  }
+  const challenge = await requireLoginChallenge(challengePublicId);
 
   const availableMethods = enabledMethods(challenge.user);
 
@@ -228,49 +326,74 @@ export async function switchLoginMethod(
     throw new ValidationError(ERROR_MESSAGES.TWO_FACTOR_METHOD_UNAVAILABLE);
   }
 
-  await twoFactorRepository.consume(challenge.id);
+  // Send/create first. createEmail/SmsChallenge invalidates pending only after a
+  // successful send, so a failed SMS/email never forces the user back to login.
+  let next: { publicId: string; method: TwoFactorMethod; expiresAt: Date };
 
-  const next =
-    method === "EMAIL"
-      ? await createEmailChallenge({
-          userId: challenge.userId,
-          email: challenge.user.email,
-          purpose: "LOGIN",
-          mailPurpose: "sign-in",
-        })
-      : await twoFactorRepository.create({
-          userId: challenge.userId,
-          purpose: "LOGIN",
-          method: "AUTHENTICATOR",
-          expiresAt: challengeExpiresAt(),
-        });
+  if (method === "EMAIL") {
+    next = await createEmailChallenge({
+      userId: challenge.userId,
+      email: challenge.user.email,
+      purpose: "LOGIN",
+      mailPurpose: "sign-in",
+    });
+  } else if (method === "SMS") {
+    next = await createSmsChallenge({
+      userId: challenge.userId,
+      phone: challenge.user.phone ?? "",
+      purpose: "LOGIN",
+      smsPurpose: "sign-in",
+    });
+  } else {
+    await twoFactorRepository.invalidatePendingForUser(challenge.userId, "LOGIN");
+    next = await twoFactorRepository.create({
+      userId: challenge.userId,
+      purpose: "LOGIN",
+      method: "AUTHENTICATOR",
+      expiresAt: authenticatorChallengeExpiresAt(),
+    });
+  }
 
-  return {
+  return toLoginChallengeSummary({
     challengePublicId: next.publicId,
     method: next.method as TwoFactorMethodId,
     availableMethods,
-    emailMasked: maskEmail(challenge.user.email),
-  };
+    email: challenge.user.email,
+    phone: challenge.user.phone,
+    expiresAt: next.expiresAt,
+  });
 }
 
 export async function resendLoginEmailCode(
   challengePublicId: string,
 ): Promise<LoginTwoFactorChallenge> {
-  const challenge = await twoFactorRepository.findActiveByPublicId(challengePublicId);
+  const challenge = await requireLoginChallenge(challengePublicId);
 
-  if (!challenge || challenge.purpose !== "LOGIN" || challenge.method !== "EMAIL") {
-    throw new UnauthorizedError(ERROR_MESSAGES.TWO_FACTOR_EXPIRED);
+  if (challenge.method !== "EMAIL") {
+    throw new ValidationError("Switch to email verification before requesting another email code.");
   }
 
-  const latest = await twoFactorRepository.findLatestLoginEmailSentAt(challenge.userId);
-  if (
-    latest &&
-    Date.now() - latest.createdAt.getTime() < TWO_FACTOR_EMAIL_RESEND_COOLDOWN_SECONDS * 1_000
-  ) {
-    throw new ValidationError("Wait a minute before requesting another code.");
+  if (challenge.expiresAt.getTime() > Date.now()) {
+    throw new ValidationError("Wait for the current code to expire before requesting another.");
   }
 
   return switchLoginMethod(challengePublicId, "EMAIL");
+}
+
+export async function resendLoginSmsCode(
+  challengePublicId: string,
+): Promise<LoginTwoFactorChallenge> {
+  const challenge = await requireLoginChallenge(challengePublicId);
+
+  if (challenge.method !== "SMS") {
+    throw new ValidationError("Switch to SMS verification before requesting another SMS code.");
+  }
+
+  if (challenge.expiresAt.getTime() > Date.now()) {
+    throw new ValidationError("Wait for the current code to expire before requesting another.");
+  }
+
+  return switchLoginMethod(challengePublicId, "SMS");
 }
 
 export interface CompleteLoginResult {
@@ -280,19 +403,64 @@ export interface CompleteLoginResult {
   readonly mustChangePassword: boolean;
 }
 
+function assertAccountMayCompleteSignIn(user: ActiveChallenge["user"]): void {
+  if (user.status !== RECORD_STATUS.ACTIVE) {
+    throw new ForbiddenError(ERROR_MESSAGES.ACCOUNT_INACTIVE);
+  }
+
+  if (user.role.status !== RECORD_STATUS.ACTIVE) {
+    throw new ForbiddenError("Your role has been deactivated. Contact your administrator.");
+  }
+
+  if (user.branch.status !== RECORD_STATUS.ACTIVE || user.branch.deletedAt !== null) {
+    throw new ForbiddenError("Your branch has been deactivated. Contact your administrator.");
+  }
+}
+
 export async function completeLoginWithTwoFactor(input: {
   challengePublicId: string;
   code: string;
   ipAddress: string | null;
   userAgent: string | null;
 }): Promise<CompleteLoginResult> {
-  const challenge = await twoFactorRepository.findActiveByPublicId(input.challengePublicId);
+  const challenge = await requireLoginChallenge(input.challengePublicId);
 
-  if (!challenge || challenge.purpose !== "LOGIN") {
+  if (
+    (challenge.method === "EMAIL" || challenge.method === "SMS") &&
+    challenge.expiresAt.getTime() <= Date.now()
+  ) {
+    throw new ValidationError(ERROR_MESSAGES.TWO_FACTOR_CODE_EXPIRED);
+  }
+
+  if (challenge.expiresAt.getTime() <= Date.now()) {
     throw new UnauthorizedError(ERROR_MESSAGES.TWO_FACTOR_EXPIRED);
   }
 
   await assertChallengeCode(challenge, input.code);
+
+  try {
+    assertAccountMayCompleteSignIn(challenge.user);
+  } catch (error) {
+    await twoFactorRepository.consume(challenge.id);
+    await loginAttemptRepository.record({
+      emailAttempted: challenge.user.email,
+      ipAddress: input.ipAddress,
+      successful: false,
+    });
+    await auditRepository.record({
+      action: AUDIT_ACTIONS.LOGIN_FAILED,
+      actorUserId: challenge.userId,
+      actorEmail: challenge.user.email,
+      entityType: "User",
+      entityId: challenge.userId,
+      entityPublicId: challenge.user.publicId,
+      summary: "Two-factor verified but account is inactive or deactivated",
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+    });
+    throw error;
+  }
+
   await twoFactorRepository.consume(challenge.id);
 
   await userRepository.recordSuccessfulLogin(challenge.userId);
@@ -329,18 +497,27 @@ export async function completeLoginWithTwoFactor(input: {
 export async function getLoginChallengeSummary(
   challengePublicId: string,
 ): Promise<LoginTwoFactorChallenge | null> {
-  const challenge = await twoFactorRepository.findActiveByPublicId(challengePublicId);
+  const challenge = await twoFactorRepository.findLoginByPublicId(challengePublicId);
 
-  if (!challenge || challenge.purpose !== "LOGIN") {
+  if (!challenge || !isWithinLoginPendingWindow(challenge.createdAt)) {
     return null;
   }
 
-  return {
+  try {
+    assertAccountMayCompleteSignIn(challenge.user);
+  } catch {
+    await twoFactorRepository.consume(challenge.id);
+    return null;
+  }
+
+  return toLoginChallengeSummary({
     challengePublicId: challenge.publicId,
     method: challenge.method as TwoFactorMethodId,
     availableMethods: enabledMethods(challenge.user),
-    emailMasked: maskEmail(challenge.user.email),
-  };
+    email: challenge.user.email,
+    phone: challenge.user.phone,
+    expiresAt: challenge.expiresAt,
+  });
 }
 
 export async function requestEnableEmailOtp(actor: ActorContext): Promise<void> {
@@ -381,6 +558,47 @@ export async function confirmEnableEmailOtp(actor: ActorContext, code: string): 
     entityId: actor.userId,
     entityPublicId: actor.user.publicId,
     summary: "Enabled email OTP at sign-in",
+  });
+}
+
+export async function requestEnableSmsOtp(actor: ActorContext): Promise<void> {
+  const settings = await twoFactorRepository.findTwoFactorSettings(actor.userId);
+
+  if (!settings) {
+    throw new UnauthorizedError(ERROR_MESSAGES.UNAUTHENTICATED);
+  }
+
+  if (settings.smsOtpEnabledAt) {
+    throw new ValidationError("SMS one-time passwords are already enabled.");
+  }
+
+  await createSmsChallenge({
+    userId: actor.userId,
+    phone: settings.phone ?? "",
+    purpose: "ENROLL",
+    smsPurpose: "enrolment",
+  });
+}
+
+export async function confirmEnableSmsOtp(actor: ActorContext, code: string): Promise<void> {
+  const challenge = await twoFactorRepository.findLatestActiveForUser(actor.userId, "ENROLL", "SMS");
+
+  if (!challenge) {
+    throw new ValidationError("Request a verification code first.");
+  }
+
+  await assertChallengeCode(challenge, code);
+  await twoFactorRepository.consume(challenge.id);
+  await twoFactorRepository.enableSmsOtp(actor.userId);
+
+  await auditRepository.record({
+    action: AUDIT_ACTIONS.UPDATE,
+    actorUserId: actor.userId,
+    actorEmail: actor.user.email,
+    entityType: "User",
+    entityId: actor.userId,
+    entityPublicId: actor.user.publicId,
+    summary: "Enabled SMS OTP at sign-in",
   });
 }
 
@@ -471,33 +689,7 @@ export async function disableEmailOtp(actor: ActorContext, code: string): Promis
     throw new ValidationError("Email one-time passwords are not enabled.");
   }
 
-  let verified = false;
-
-  if (settings.totpEnabledAt && settings.totpSecretEnc) {
-    verified = verifyAuthenticatorCode(unsealField(settings.totpSecretEnc), code);
-  }
-
-  if (!verified) {
-    const challenge = await twoFactorRepository.findLatestActiveForUser(
-      actor.userId,
-      "DISABLE",
-      "EMAIL",
-    );
-
-    if (!challenge) {
-      if (settings.totpEnabledAt) {
-        throw new UnauthorizedError(ERROR_MESSAGES.TWO_FACTOR_INVALID, {
-          fieldErrors: [{ field: "code", message: ERROR_MESSAGES.TWO_FACTOR_INVALID }],
-        });
-      }
-
-      throw new ValidationError("Request a verification code first.");
-    }
-
-    await assertChallengeCode(challenge, code);
-    await twoFactorRepository.consume(challenge.id);
-    verified = true;
-  }
+  const verified = await verifyDisableCode(actor.userId, code, settings, "EMAIL");
 
   if (!verified) {
     throw new UnauthorizedError(ERROR_MESSAGES.TWO_FACTOR_INVALID, {
@@ -518,6 +710,49 @@ export async function disableEmailOtp(actor: ActorContext, code: string): Promis
   });
 }
 
+export async function requestDisableSmsOtp(actor: ActorContext): Promise<void> {
+  const settings = await twoFactorRepository.findTwoFactorSettings(actor.userId);
+
+  if (!settings?.smsOtpEnabledAt) {
+    throw new ValidationError("SMS one-time passwords are not enabled.");
+  }
+
+  await createSmsChallenge({
+    userId: actor.userId,
+    phone: settings.phone ?? "",
+    purpose: "DISABLE",
+    smsPurpose: "disable",
+  });
+}
+
+export async function disableSmsOtp(actor: ActorContext, code: string): Promise<void> {
+  const settings = await twoFactorRepository.findTwoFactorSettings(actor.userId);
+
+  if (!settings?.smsOtpEnabledAt) {
+    throw new ValidationError("SMS one-time passwords are not enabled.");
+  }
+
+  const verified = await verifyDisableCode(actor.userId, code, settings, "SMS");
+
+  if (!verified) {
+    throw new UnauthorizedError(ERROR_MESSAGES.TWO_FACTOR_INVALID, {
+      fieldErrors: [{ field: "code", message: ERROR_MESSAGES.TWO_FACTOR_INVALID }],
+    });
+  }
+
+  await twoFactorRepository.disableSmsOtp(actor.userId);
+
+  await auditRepository.record({
+    action: AUDIT_ACTIONS.UPDATE,
+    actorUserId: actor.userId,
+    actorEmail: actor.user.email,
+    entityType: "User",
+    entityId: actor.userId,
+    entityPublicId: actor.user.publicId,
+    summary: "Disabled SMS OTP at sign-in",
+  });
+}
+
 export async function disableAuthenticator(actor: ActorContext, code: string): Promise<void> {
   const settings = await twoFactorRepository.findTwoFactorSettings(actor.userId);
 
@@ -525,11 +760,7 @@ export async function disableAuthenticator(actor: ActorContext, code: string): P
     throw new ValidationError("Microsoft Authenticator is not enabled.");
   }
 
-  let verified = verifyAuthenticatorCode(unsealField(settings.totpSecretEnc), code);
-
-  if (!verified && settings.emailOtpEnabledAt) {
-    verified = await tryEmailDisableCode(actor.userId, code);
-  }
+  const verified = await verifyDisableCode(actor.userId, code, settings, "AUTHENTICATOR");
 
   if (!verified) {
     throw new UnauthorizedError(ERROR_MESSAGES.TWO_FACTOR_INVALID, {
@@ -550,18 +781,52 @@ export async function disableAuthenticator(actor: ActorContext, code: string): P
   });
 }
 
-async function tryEmailDisableCode(userId: number, code: string): Promise<boolean> {
-  const challenge = await twoFactorRepository.findLatestActiveForUser(userId, "DISABLE", "EMAIL");
-  if (!challenge?.codeHash) {
+type DisableSettings = {
+  emailOtpEnabledAt: Date | null;
+  smsOtpEnabledAt: Date | null;
+  totpEnabledAt: Date | null;
+  totpSecretEnc: string | null;
+  phone: string | null;
+  email: string;
+};
+
+async function verifyDisableCode(
+  userId: number,
+  code: string,
+  settings: DisableSettings,
+  target: TwoFactorMethodId,
+): Promise<boolean> {
+  if (settings.totpEnabledAt && settings.totpSecretEnc) {
+    if (verifyAuthenticatorCode(unsealField(settings.totpSecretEnc), code)) {
+      return true;
+    }
+  }
+
+  const emailChallenge = await twoFactorRepository.findLatestActiveForUser(
+    userId,
+    "DISABLE",
+    "EMAIL",
+  );
+  if (emailChallenge?.codeHash && verifyEmailOtpCode(code, emailChallenge.codeHash)) {
+    await twoFactorRepository.consume(emailChallenge.id);
+    return true;
+  }
+
+  const smsChallenge = await twoFactorRepository.findLatestActiveForUser(userId, "DISABLE", "SMS");
+  if (smsChallenge?.codeHash && verifyEmailOtpCode(code, smsChallenge.codeHash)) {
+    await twoFactorRepository.consume(smsChallenge.id);
+    return true;
+  }
+
+  if (target === "EMAIL" && !settings.totpEnabledAt && !settings.smsOtpEnabledAt) {
     return false;
   }
 
-  if (!verifyEmailOtpCode(code, challenge.codeHash)) {
+  if (target === "SMS" && !settings.totpEnabledAt && !settings.emailOtpEnabledAt) {
     return false;
   }
 
-  await twoFactorRepository.consume(challenge.id);
-  return true;
+  return false;
 }
 
 export async function requestDisableAuthenticator(actor: ActorContext): Promise<void> {
@@ -577,6 +842,16 @@ export async function requestDisableAuthenticator(actor: ActorContext): Promise<
       email: settings.email,
       purpose: "DISABLE",
       mailPurpose: "disable",
+    });
+    return;
+  }
+
+  if (settings.smsOtpEnabledAt) {
+    await createSmsChallenge({
+      userId: actor.userId,
+      phone: settings.phone ?? "",
+      purpose: "DISABLE",
+      smsPurpose: "disable",
     });
   }
 }

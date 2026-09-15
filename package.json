@@ -12,8 +12,8 @@
     "unrs-resolver@1.12.2": true
   },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "build": "node ./scripts/run-build.mjs",
+    "dev": "node --max-old-space-size=8192 ./node_modules/next/dist/bin/next dev",
     "start": "next start",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
@@ -37,6 +37,7 @@
     "deepmerge-ts": "^8.0.2"
   },
   "dependencies": {
+    "@aws-sdk/client-sns": "^3.1132.0",
     "@hookform/resolvers": "^5.9.1",
     "@node-rs/argon2": "^2.1.0",
     "@prisma/adapter-pg": "^7.9.1",

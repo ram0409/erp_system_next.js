@@ -22,14 +22,16 @@ export function MobileNav({ items, companyName, logoUrl }: MobileNavProps) {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Open navigation" className="lg:hidden">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Open navigation"
+          className="text-white hover:bg-sidebar-accent hover:text-white lg:hidden"
+        >
           <MenuIcon />
         </Button>
       </SheetTrigger>
-      <SheetContent
-        side="left"
-        className="bg-sidebar text-sidebar-foreground border-sidebar-border overflow-hidden"
-      >
+      <SheetContent side="left" className="app-chrome-sidebar border-sidebar-border overflow-hidden">
         <div className="border-sidebar-border relative flex h-14 items-center gap-2.5 border-b px-4">
           <div
             className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-white/10 to-transparent"

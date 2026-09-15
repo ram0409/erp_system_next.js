@@ -66,7 +66,9 @@ const CREDENTIAL_SELECT = {
   failedLoginAttempts: true,
   lockedUntil: true,
   temporaryPasswordExpiresAt: true,
+  phone: true,
   emailOtpEnabledAt: true,
+  smsOtpEnabledAt: true,
   totpEnabledAt: true,
 } satisfies Prisma.UserSelect;
 
