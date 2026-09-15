@@ -18,6 +18,7 @@ import * as twoFactorService from "@/services/two-factor-service";
 import {
   confirmAuthenticatorEnrollmentSchema,
   confirmEmailOtpEnrollmentSchema,
+  confirmSmsOtpEnrollmentSchema,
   disableTwoFactorMethodSchema,
   switchLoginTwoFactorMethodSchema,
   verifyLoginTwoFactorSchema,
@@ -49,7 +50,7 @@ export const verifyLoginTwoFactorAction = definePublicAction({
     scheduleInactivitySweep(result.userId);
 
     return {
-      redirectTo: result.mustChangePassword ? ROUTES.CHANGE_PASSWORD : ROUTES.DASHBOARD,
+      redirectTo: ROUTES.DASHBOARD,
     };
   },
 });
@@ -89,6 +90,24 @@ export const resendLoginTwoFactorEmailAction = definePublicAction({
   },
 });
 
+export const resendLoginTwoFactorSmsAction = definePublicAction({
+  name: "twoFactor.resendLoginSms",
+  schema: emptyInputSchema,
+  successMessage: SUCCESS_MESSAGES.TWO_FACTOR_CODE_SENT,
+  handler: async () => {
+    const challengePublicId = await readTwoFactorPendingCookie();
+
+    if (!challengePublicId) {
+      throw new UnauthorizedError(ERROR_MESSAGES.TWO_FACTOR_EXPIRED);
+    }
+
+    const challenge = await twoFactorService.resendLoginSmsCode(challengePublicId);
+    await setTwoFactorPendingCookie(challenge.challengePublicId);
+
+    return challenge;
+  },
+});
+
 export const getTwoFactorStatusAction = defineAuthenticatedAction({
   name: "twoFactor.status",
   schema: emptyInputSchema,
@@ -111,6 +130,27 @@ export const confirmEnableEmailOtpAction = defineAuthenticatedAction({
   successMessage: SUCCESS_MESSAGES.TWO_FACTOR_EMAIL_ENABLED,
   handler: async (input, actor) => {
     await twoFactorService.confirmEnableEmailOtp(actor, input.code);
+    revalidatePath(ROUTES.SETTINGS_SECURITY);
+    return null;
+  },
+});
+
+export const requestEnableSmsOtpAction = defineAuthenticatedAction({
+  name: "twoFactor.requestEnableSms",
+  schema: emptyInputSchema,
+  successMessage: SUCCESS_MESSAGES.TWO_FACTOR_CODE_SENT,
+  handler: async (_input, actor) => {
+    await twoFactorService.requestEnableSmsOtp(actor);
+    return null;
+  },
+});
+
+export const confirmEnableSmsOtpAction = defineAuthenticatedAction({
+  name: "twoFactor.confirmEnableSms",
+  schema: confirmSmsOtpEnrollmentSchema,
+  successMessage: SUCCESS_MESSAGES.TWO_FACTOR_SMS_ENABLED,
+  handler: async (input, actor) => {
+    await twoFactorService.confirmEnableSmsOtp(actor, input.code);
     revalidatePath(ROUTES.SETTINGS_SECURITY);
     return null;
   },
@@ -156,6 +196,30 @@ export const disableEmailOtpAction = defineAuthenticatedAction({
   successMessage: SUCCESS_MESSAGES.TWO_FACTOR_EMAIL_DISABLED,
   handler: async (input, actor) => {
     await twoFactorService.disableEmailOtp(actor, input.code);
+    revalidatePath(ROUTES.SETTINGS_SECURITY);
+    return null;
+  },
+});
+
+export const requestDisableSmsOtpAction = defineAuthenticatedAction({
+  name: "twoFactor.requestDisableSms",
+  schema: emptyInputSchema,
+  successMessage: SUCCESS_MESSAGES.TWO_FACTOR_CODE_SENT,
+  handler: async (_input, actor) => {
+    await twoFactorService.requestDisableSmsOtp(actor);
+    return null;
+  },
+});
+
+export const disableSmsOtpAction = defineAuthenticatedAction({
+  name: "twoFactor.disableSms",
+  schema: disableTwoFactorMethodSchema.refine((values) => values.method === "SMS", {
+    message: "Invalid method",
+    path: ["method"],
+  }),
+  successMessage: SUCCESS_MESSAGES.TWO_FACTOR_SMS_DISABLED,
+  handler: async (input, actor) => {
+    await twoFactorService.disableSmsOtp(actor, input.code);
     revalidatePath(ROUTES.SETTINGS_SECURITY);
     return null;
   },

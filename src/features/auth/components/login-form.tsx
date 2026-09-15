@@ -57,9 +57,13 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
       }
 
       // `router.refresh()` first, so the layout re-renders with the new session
-      // cookie before the dashboard route is requested.
+      // cookie before the destination route is requested.
       router.refresh();
-      router.replace(redirectTo ?? result.data.redirectTo);
+      // Never let `?next=` skip two-factor verification.
+      const destination = result.data.requiresTwoFactor
+        ? result.data.redirectTo
+        : (redirectTo ?? result.data.redirectTo);
+      router.replace(destination);
     });
   });
 

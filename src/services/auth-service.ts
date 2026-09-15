@@ -222,7 +222,9 @@ export async function signIn(request: SignInRequest): Promise<SignInResult> {
     const challenge = await twoFactorService.beginLoginChallenge({
       userId: user.id,
       email: user.email,
+      phone: user.phone,
       emailOtpEnabledAt: user.emailOtpEnabledAt,
+      smsOtpEnabledAt: user.smsOtpEnabledAt,
       totpEnabledAt: user.totpEnabledAt,
     });
 

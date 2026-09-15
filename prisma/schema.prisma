@@ -427,6 +427,8 @@ model User {
 
   /// Email one-time codes at sign-in. Null means this method is off.
   emailOtpEnabledAt DateTime? @map("email_otp_enabled_at")
+  /// SMS one-time codes at sign-in. Null means this method is off.
+  smsOtpEnabledAt DateTime? @map("sms_otp_enabled_at")
   /// Authenticator-app TOTP (Microsoft Authenticator and compatible apps).
   totpEnabledAt DateTime? @map("totp_enabled_at")
   /// AES-GCM sealed TOTP secret. Never returned in listings or actor context.
@@ -634,6 +636,7 @@ model Worklog {
 
 enum TwoFactorMethod {
   EMAIL
+  SMS
   AUTHENTICATOR
 
   @@map("two_factor_method")

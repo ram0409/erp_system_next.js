@@ -44,6 +44,13 @@ const serverEnvSchema = z.object({
   SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM: z.string().optional(),
 
+  /** AWS SNS credentials for SMS OTP. Optional in development (codes are logged). */
+  AWS_ACCESS_KEY_ID: z.string().optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().optional(),
+  AWS_REGION: z.string().default("ap-south-1"),
+  /** Optional dedicated sender ID (alpha) where AWS SNS supports it. */
+  AWS_SNS_SENDER_ID: z.string().optional(),
+
   /** Bearer secret for `/api/cron/inactivity`. Optional in development. */
   CRON_SECRET: z.string().min(16, "CRON_SECRET must be at least 16 characters").optional(),
 });
@@ -99,3 +106,6 @@ export const isTest = env.NODE_ENV === "test";
 export const isMailConfigured = Boolean(
   env.SMTP_FROM && (env.SMTP_HOST || env.SMTP_PASSWORD?.startsWith("xkeysib-")),
 );
+
+/** SMS OTP via AWS SNS. Optional in development; codes are logged instead. */
+export const isSmsConfigured = Boolean(env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY);

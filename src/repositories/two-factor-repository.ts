@@ -23,6 +23,7 @@ const CHALLENGE_SELECT = {
   codeHash: true,
   secretEnc: true,
   expiresAt: true,
+  createdAt: true,
   consumedAt: true,
   failedAttempts: true,
   user: {
@@ -37,8 +38,10 @@ const CHALLENGE_SELECT = {
       tokenVersion: true,
       mustChangePassword: true,
       emailOtpEnabledAt: true,
+      smsOtpEnabledAt: true,
       totpEnabledAt: true,
       totpSecretEnc: true,
+      phone: true,
       role: {
         select: {
           publicId: true,
@@ -68,6 +71,7 @@ export type TwoFactorChallengeRow = NonNullable<
 export function create(input: CreateTwoFactorChallengeInput): Promise<{
   publicId: string;
   method: TwoFactorMethod;
+  expiresAt: Date;
 }> {
   return withPrismaErrors("twoFactor.create", () =>
     prisma.twoFactorChallenge.create({
@@ -79,7 +83,7 @@ export function create(input: CreateTwoFactorChallengeInput): Promise<{
         secretEnc: input.secretEnc ?? null,
         expiresAt: input.expiresAt,
       },
-      select: { publicId: true, method: true },
+      select: { publicId: true, method: true, expiresAt: true },
     }),
   );
 }
@@ -91,6 +95,20 @@ export function findActiveByPublicId(publicId: string) {
         publicId,
         consumedAt: null,
         expiresAt: { gt: new Date() },
+      },
+      select: CHALLENGE_SELECT,
+    }),
+  );
+}
+
+/** LOGIN challenge still in the pending window, including after the OTP expires (for resend). */
+export function findLoginByPublicId(publicId: string) {
+  return withPrismaErrors("twoFactor.findLoginByPublicId", () =>
+    prisma.twoFactorChallenge.findFirst({
+      where: {
+        publicId,
+        purpose: "LOGIN",
+        consumedAt: null,
       },
       select: CHALLENGE_SELECT,
     }),
@@ -130,18 +148,23 @@ export async function invalidatePendingForUser(
   );
 }
 
-export function findLatestLoginEmailSentAt(userId: number) {
-  return withPrismaErrors("twoFactor.findLatestLoginEmailSentAt", () =>
+export function findLatestLoginOtpSentAt(userId: number, method: "EMAIL" | "SMS") {
+  return withPrismaErrors("twoFactor.findLatestLoginOtpSentAt", () =>
     prisma.twoFactorChallenge.findFirst({
       where: {
         userId,
         purpose: "LOGIN",
-        method: "EMAIL",
+        method,
       },
       orderBy: { createdAt: "desc" },
       select: { createdAt: true },
     }),
   );
+}
+
+/** @deprecated Prefer findLatestLoginOtpSentAt(userId, "EMAIL") */
+export function findLatestLoginEmailSentAt(userId: number) {
+  return findLatestLoginOtpSentAt(userId, "EMAIL");
 }
 
 export function findTwoFactorSettings(userId: number) {
@@ -151,7 +174,9 @@ export function findTwoFactorSettings(userId: number) {
       select: {
         id: true,
         email: true,
+        phone: true,
         emailOtpEnabledAt: true,
+        smsOtpEnabledAt: true,
         totpEnabledAt: true,
         totpSecretEnc: true,
       },
@@ -173,6 +198,24 @@ export async function disableEmailOtp(userId: number): Promise<void> {
     prisma.user.update({
       where: { id: userId },
       data: { emailOtpEnabledAt: null },
+    }),
+  );
+}
+
+export async function enableSmsOtp(userId: number): Promise<void> {
+  await withPrismaErrors("twoFactor.enableSmsOtp", () =>
+    prisma.user.update({
+      where: { id: userId },
+      data: { smsOtpEnabledAt: new Date() },
+    }),
+  );
+}
+
+export async function disableSmsOtp(userId: number): Promise<void> {
+  await withPrismaErrors("twoFactor.disableSmsOtp", () =>
+    prisma.user.update({
+      where: { id: userId },
+      data: { smsOtpEnabledAt: null },
     }),
   );
 }

@@ -4,7 +4,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
-import { toast } from "sonner";
 
 import { FormField } from "@/components/forms/form-field";
 import { PasswordInput } from "@/components/forms/password-input";
@@ -70,11 +69,6 @@ export function ChangePasswordForm({ forced = false, policy }: ChangePasswordFor
       }
 
       reset();
-      toast.success(
-        forced
-          ? "Password updated. Sign in with your new password."
-          : result.message,
-      );
       router.refresh();
       router.replace(result.data.redirectTo);
     });

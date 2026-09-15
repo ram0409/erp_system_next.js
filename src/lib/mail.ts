@@ -5,6 +5,7 @@ import { createTransport } from "nodemailer";
 import { env, isDevelopment, isMailConfigured } from "@/config/env";
 import { publicEnv } from "@/config/public-env";
 import { inactivityDeactivateLabel } from "@/constants/security";
+import { TWO_FACTOR_CODE_TTL_MINUTES } from "@/constants/two-factor";
 import { logger } from "@/lib/logger";
 
 /**
@@ -362,7 +363,7 @@ export async function sendTwoFactorOtpEmail(mail: TwoFactorOtpMail): Promise<boo
     "",
     mail.code,
     "",
-    "The code expires in 10 minutes and can be used only once.",
+    `The code expires in ${TWO_FACTOR_CODE_TTL_MINUTES} minute${TWO_FACTOR_CODE_TTL_MINUTES === 1 ? "" : "s"} and can be used only once.`,
     "",
     "If you did not request this, change your password and contact your administrator.",
   ].join("\n");

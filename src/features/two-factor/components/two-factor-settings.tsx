@@ -3,6 +3,7 @@
 import {
   CheckCircle2Icon,
   CircleOffIcon,
+  MessageSquareIcon,
   ShieldCheckIcon,
   SmartphoneIcon,
 } from "lucide-react";
@@ -26,15 +27,20 @@ import {
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
+import { ROUTES } from "@/constants/routes";
 import {
   beginAuthenticatorEnrollmentAction,
   confirmAuthenticatorEnrollmentAction,
   confirmEnableEmailOtpAction,
+  confirmEnableSmsOtpAction,
   disableAuthenticatorAction,
   disableEmailOtpAction,
+  disableSmsOtpAction,
   requestDisableAuthenticatorAction,
   requestDisableEmailOtpAction,
+  requestDisableSmsOtpAction,
   requestEnableEmailOtpAction,
+  requestEnableSmsOtpAction,
 } from "@/features/two-factor/actions";
 import { cn } from "@/lib/utils";
 import type { TwoFactorStatus } from "@/types/two-factor";
@@ -101,8 +107,12 @@ export function TwoFactorSettings({ status }: TwoFactorSettingsProps) {
   const [isPending, startTransition] = useTransition();
   const [emailCode, setEmailCode] = useState("");
   const [emailEnrollStep, setEmailEnrollStep] = useState<"idle" | "verify">("idle");
+  const [smsCode, setSmsCode] = useState("");
+  const [smsEnrollStep, setSmsEnrollStep] = useState<"idle" | "verify">("idle");
   const [disableEmailOpen, setDisableEmailOpen] = useState(false);
   const [disableEmailCode, setDisableEmailCode] = useState("");
+  const [disableSmsOpen, setDisableSmsOpen] = useState(false);
+  const [disableSmsCode, setDisableSmsCode] = useState("");
   const [disableAuthOpen, setDisableAuthOpen] = useState(false);
   const [disableAuthCode, setDisableAuthCode] = useState("");
   const [authSetupOpen, setAuthSetupOpen] = useState(false);
@@ -117,6 +127,9 @@ export function TwoFactorSettings({ status }: TwoFactorSettingsProps) {
       if (!result.success) {
         toast.error(result.message);
         return;
+      }
+      if (result.message) {
+        toast.success(result.message);
       }
       router.refresh();
     });
@@ -140,6 +153,32 @@ export function TwoFactorSettings({ status }: TwoFactorSettingsProps) {
     setEmailCode("");
     setDisableEmailOpen(true);
     setDisableEmailCode("");
+    run(async () => requestDisableEmailOtpAction({}) as never);
+  }
+
+  function onSmsToggle(next: boolean) {
+    if (next) {
+      if (!status.phone) {
+        toast.error("Add a phone number on your profile before enabling SMS OTP.");
+        return;
+      }
+      setDisableSmsOpen(false);
+      setDisableSmsCode("");
+      run(async () => {
+        const result = await requestEnableSmsOtpAction({});
+        if (result.success) {
+          setSmsEnrollStep("verify");
+        }
+        return result;
+      });
+      return;
+    }
+
+    setSmsEnrollStep("idle");
+    setSmsCode("");
+    setDisableSmsOpen(true);
+    setDisableSmsCode("");
+    run(async () => requestDisableSmsOtpAction({}) as never);
   }
 
   function onAuthenticatorToggle(next: boolean) {
@@ -164,6 +203,9 @@ export function TwoFactorSettings({ status }: TwoFactorSettingsProps) {
 
     setDisableAuthOpen(true);
     setDisableAuthCode("");
+    if (status.emailOtpEnabled || status.smsOtpEnabled) {
+      run(async () => requestDisableAuthenticatorAction({}) as never);
+    }
   }
 
   return (
@@ -172,7 +214,7 @@ export function TwoFactorSettings({ status }: TwoFactorSettingsProps) {
         <CardHeader>
           <CardTitle>Two-factor authentication</CardTitle>
           <CardDescription>
-            Add a second step at sign-in with an email code or Microsoft Authenticator.
+            Add a second step at sign-in with email, SMS, or Microsoft Authenticator.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
@@ -214,19 +256,6 @@ export function TwoFactorSettings({ status }: TwoFactorSettingsProps) {
                   />
                 </FormField>
                 <div className="flex flex-wrap gap-2">
-                  {status.authenticatorEnabled ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={isPending}
-                      onClick={() =>
-                        run(async () => requestDisableEmailOtpAction({}) as never)
-                      }
-                    >
-                      Send email code
-                    </Button>
-                  ) : null}
                   <Button
                     type="button"
                     variant="destructive"
@@ -312,6 +341,140 @@ export function TwoFactorSettings({ status }: TwoFactorSettingsProps) {
             ) : null}
           </MethodCard>
 
+          <MethodCard enabled={status.smsOtpEnabled}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 gap-3">
+                <MethodIconShell enabled={status.smsOtpEnabled}>
+                  <MessageSquareIcon className="size-5" aria-hidden="true" />
+                </MethodIconShell>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-semibold">SMS OTP</h3>
+                    <MethodStatusBadge enabled={status.smsOtpEnabled} />
+                  </div>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    {status.phoneMasked
+                      ? `A one-time code is texted to ${status.phoneMasked} when you sign in.`
+                      : "A one-time code is texted to your phone when you sign in."}
+                  </p>
+                  {!status.phone ? (
+                    <p className="text-warning mt-1 text-xs">
+                      Add a phone number on{" "}
+                      <a href={ROUTES.PROFILE} className="underline underline-offset-2">
+                        your profile
+                      </a>{" "}
+                      first.
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              <Switch
+                checked={status.smsOtpEnabled}
+                disabled={isPending}
+                onCheckedChange={onSmsToggle}
+                aria-label="Toggle SMS OTP"
+              />
+            </div>
+
+            {status.smsOtpEnabled && disableSmsOpen ? (
+              <div className="border-border mt-4 space-y-3 border-t pt-4">
+                <FormField htmlFor="disable-sms-code" label="Enter code to turn off SMS OTP">
+                  <Input
+                    id="disable-sms-code"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="000000"
+                    value={disableSmsCode}
+                    onChange={(event) => setDisableSmsCode(event.target.value)}
+                    disabled={isPending}
+                  />
+                </FormField>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    disabled={isPending || disableSmsCode.length !== 6}
+                    onClick={() =>
+                      run(async () => {
+                        const result = await disableSmsOtpAction({
+                          method: "SMS",
+                          code: disableSmsCode,
+                        });
+                        if (result.success) {
+                          setDisableSmsOpen(false);
+                          setDisableSmsCode("");
+                        }
+                        return result;
+                      })
+                    }
+                  >
+                    Confirm turn off
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={isPending}
+                    onClick={() => {
+                      setDisableSmsOpen(false);
+                      setDisableSmsCode("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            {!status.smsOtpEnabled && smsEnrollStep === "verify" ? (
+              <div className="border-border mt-4 space-y-3 border-t pt-4">
+                <FormField htmlFor="sms-enroll-code" label="SMS verification code">
+                  <Input
+                    id="sms-enroll-code"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="000000"
+                    value={smsCode}
+                    onChange={(event) => setSmsCode(event.target.value)}
+                    disabled={isPending}
+                  />
+                </FormField>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={isPending || smsCode.length !== 6}
+                    onClick={() =>
+                      run(async () => {
+                        const result = await confirmEnableSmsOtpAction({ code: smsCode });
+                        if (result.success) {
+                          setSmsEnrollStep("idle");
+                          setSmsCode("");
+                        }
+                        return result;
+                      })
+                    }
+                  >
+                    Confirm enable
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={isPending}
+                    onClick={() => {
+                      setSmsEnrollStep("idle");
+                      setSmsCode("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </MethodCard>
+
           <MethodCard enabled={status.authenticatorEnabled}>
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 gap-3">
@@ -350,19 +513,6 @@ export function TwoFactorSettings({ status }: TwoFactorSettingsProps) {
                   />
                 </FormField>
                 <div className="flex flex-wrap gap-2">
-                  {status.emailOtpEnabled ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={isPending}
-                      onClick={() =>
-                        run(async () => requestDisableAuthenticatorAction({}) as never)
-                      }
-                    >
-                      Send email code
-                    </Button>
-                  ) : null}
                   <Button
                     type="button"
                     variant="destructive"
