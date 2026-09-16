@@ -60,6 +60,71 @@ async function requireLoginChallenge(challengePublicId: string): Promise<ActiveC
   return challenge;
 }
 
+/**
+ * Prefer the challenge the UI is showing (matches the OTP the user received).
+ * Fall back to the pending cookie when the client id is already consumed/stale.
+ * Cookie and client ids must belong to the same user when both resolve.
+ */
+async function resolveVerifyChallenge(
+  clientChallengePublicId: string,
+  cookieChallengePublicId: string,
+): Promise<ActiveChallenge> {
+  const cookieMeta = await twoFactorRepository.findLoginChallengeByPublicId(
+    cookieChallengePublicId,
+  );
+
+  if (!cookieMeta) {
+    throw new UnauthorizedError(ERROR_MESSAGES.TWO_FACTOR_EXPIRED);
+  }
+
+  const preferred = await twoFactorRepository.findLoginByPublicId(clientChallengePublicId);
+  if (
+    preferred &&
+    preferred.userId === cookieMeta.userId &&
+    isWithinLoginPendingWindow(preferred.createdAt)
+  ) {
+    return preferred;
+  }
+
+  if (!isWithinLoginPendingWindow(cookieMeta.createdAt)) {
+    throw new UnauthorizedError(ERROR_MESSAGES.TWO_FACTOR_EXPIRED);
+  }
+
+  if (cookieChallengePublicId !== clientChallengePublicId) {
+    const fromCookie = await twoFactorRepository.findLoginByPublicId(cookieChallengePublicId);
+    if (fromCookie && isWithinLoginPendingWindow(fromCookie.createdAt)) {
+      return fromCookie;
+    }
+  }
+
+  throw new UnauthorizedError(ERROR_MESSAGES.TWO_FACTOR_EXPIRED);
+}
+
+/** Returns the client challenge public id when it is active and owned by the cookie's user. */
+export async function resolveLoginChallengePublicId(
+  clientChallengePublicId: string,
+  cookieChallengePublicId: string,
+): Promise<string | null> {
+  const cookieMeta = await twoFactorRepository.findLoginChallengeByPublicId(
+    cookieChallengePublicId,
+  );
+
+  if (!cookieMeta) {
+    return null;
+  }
+
+  const preferred = await twoFactorRepository.findLoginByPublicId(clientChallengePublicId);
+  if (
+    preferred &&
+    preferred.userId === cookieMeta.userId &&
+    isWithinLoginPendingWindow(preferred.createdAt)
+  ) {
+    return preferred.publicId;
+  }
+
+  return null;
+}
+
 export function maskEmail(email: string): string {
   const [local, domain] = email.split("@");
   if (!local || !domain) {
@@ -419,11 +484,15 @@ function assertAccountMayCompleteSignIn(user: ActiveChallenge["user"]): void {
 
 export async function completeLoginWithTwoFactor(input: {
   challengePublicId: string;
+  cookieChallengePublicId: string;
   code: string;
   ipAddress: string | null;
   userAgent: string | null;
 }): Promise<CompleteLoginResult> {
-  const challenge = await requireLoginChallenge(input.challengePublicId);
+  const challenge = await resolveVerifyChallenge(
+    input.challengePublicId,
+    input.cookieChallengePublicId,
+  );
 
   if (
     (challenge.method === "EMAIL" || challenge.method === "SMS") &&
