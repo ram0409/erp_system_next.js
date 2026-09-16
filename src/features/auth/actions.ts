@@ -7,6 +7,7 @@ import { ROUTES } from "@/constants/routes";
 import { SUCCESS_MESSAGES } from "@/constants/messages";
 import { defineAuthenticatedAction, definePublicAction } from "@/lib/action";
 import { getUserAgent } from "@/lib/request";
+import { requiresPasswordChange } from "@/lib/session";
 import { clearSessionCookie, setSessionCookie } from "@/lib/session-cookie";
 import {
   clearTwoFactorPendingCookie,
@@ -58,7 +59,7 @@ export const signInAction = definePublicAction({
     return {
       requiresTwoFactor: false,
       mustChangePassword: result.mustChangePassword,
-      redirectTo: ROUTES.DASHBOARD,
+      redirectTo: result.mustChangePassword ? ROUTES.CHANGE_PASSWORD : ROUTES.DASHBOARD,
     };
   },
 });
@@ -91,6 +92,8 @@ export const changePasswordAction = defineAuthenticatedAction({
   schema: changePasswordSchema,
   successMessage: SUCCESS_MESSAGES.PASSWORD_CHANGED,
   handler: async (input, actor) => {
+    const wasForced = await requiresPasswordChange();
+
     const { claims } = await authService.changePassword({
       userId: actor.userId,
       userPublicId: actor.user.publicId,
@@ -101,7 +104,16 @@ export const changePasswordAction = defineAuthenticatedAction({
       userAgent: await getUserAgent(),
     });
 
-    // Keep this session alive; tokenVersion invalidates other devices.
+    // First login: end the session so the user signs in with the new password.
+    if (wasForced) {
+      await clearSessionCookie();
+      await clearWorkspaceCookie();
+      await clearTwoFactorPendingCookie();
+      revalidatePath("/", "layout");
+      return { redirectTo: ROUTES.LOGIN };
+    }
+
+    // Voluntary change: keep this session; tokenVersion invalidated the others.
     await setSessionCookie(claims);
     revalidatePath("/", "layout");
 

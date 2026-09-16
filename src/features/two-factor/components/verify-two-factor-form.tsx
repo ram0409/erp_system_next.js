@@ -1,7 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
@@ -18,8 +17,8 @@ import {
   TWO_FACTOR_TIMER_ORANGE_SECONDS,
   TWO_FACTOR_TIMER_RED_SECONDS,
 } from "@/constants/two-factor";
-import { ROUTES } from "@/constants/routes";
 import {
+  cancelLoginTwoFactorAction,
   resendLoginTwoFactorEmailAction,
   resendLoginTwoFactorSmsAction,
   switchLoginTwoFactorMethodAction,
@@ -80,11 +79,19 @@ export function VerifyTwoFactorForm({ challenge: initialChallenge }: VerifyTwoFa
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<VerifyLoginTwoFactorInput>({
     resolver: zodResolver(verifyLoginTwoFactorSchema),
-    defaultValues: { code: "" },
+    defaultValues: {
+      code: "",
+      challengePublicId: initialChallenge.challengePublicId,
+    },
   });
+
+  useEffect(() => {
+    setValue("challengePublicId", challenge.challengePublicId);
+  }, [challenge.challengePublicId, setValue]);
 
   useEffect(() => {
     const isOtp = challenge.method === "EMAIL" || challenge.method === "SMS";
@@ -97,7 +104,7 @@ export function VerifyTwoFactorForm({ challenge: initialChallenge }: VerifyTwoFa
     }
 
     if (markedExpired) {
-      reset({ code: "" });
+      reset({ code: "", challengePublicId: challenge.challengePublicId });
       setFormError(ERROR_MESSAGES.TWO_FACTOR_CODE_EXPIRED);
     }
 
@@ -107,13 +114,13 @@ export function VerifyTwoFactorForm({ challenge: initialChallenge }: VerifyTwoFa
 
       if (remaining === 0 && !markedExpired) {
         markedExpired = true;
-        reset({ code: "" });
+        reset({ code: "", challengePublicId: challenge.challengePublicId });
         setFormError(ERROR_MESSAGES.TWO_FACTOR_CODE_EXPIRED);
       }
     }, 1_000);
 
     return () => window.clearInterval(timer);
-  }, [challenge.expiresAt, challenge.method, reset]);
+  }, [challenge.challengePublicId, challenge.expiresAt, challenge.method, reset]);
 
   const alternateMethods = challenge.availableMethods.filter(
     (method) => method !== challenge.method,
@@ -148,7 +155,10 @@ export function VerifyTwoFactorForm({ challenge: initialChallenge }: VerifyTwoFa
     setFormError(null);
 
     startTransition(async () => {
-      const result = await verifyLoginTwoFactorAction(values);
+      const result = await verifyLoginTwoFactorAction({
+        code: values.code,
+        challengePublicId: challenge.challengePublicId,
+      });
 
       if (!result.success) {
         setFormError(result.message);
@@ -167,14 +177,17 @@ export function VerifyTwoFactorForm({ challenge: initialChallenge }: VerifyTwoFa
 
     setFormError(null);
     startTransition(async () => {
-      const result = await switchLoginTwoFactorMethodAction({ method });
+      const result = await switchLoginTwoFactorMethodAction({
+        method,
+        challengePublicId: challenge.challengePublicId,
+      });
 
       if (!result.success) {
         setFormError(result.message);
         return;
       }
 
-      reset({ code: "" });
+      reset({ code: "", challengePublicId: result.data.challengePublicId });
       setChallenge(result.data);
     });
   };
@@ -182,24 +195,38 @@ export function VerifyTwoFactorForm({ challenge: initialChallenge }: VerifyTwoFa
   const resendCode = () => {
     setFormError(null);
     startTransition(async () => {
+      const payload = { challengePublicId: challenge.challengePublicId };
       const result =
         challenge.method === "SMS"
-          ? await resendLoginTwoFactorSmsAction({})
-          : await resendLoginTwoFactorEmailAction({});
+          ? await resendLoginTwoFactorSmsAction(payload)
+          : await resendLoginTwoFactorEmailAction(payload);
 
       if (!result.success) {
         setFormError(result.message);
         return;
       }
 
-      reset({ code: "" });
+      reset({ code: "", challengePublicId: result.data.challengePublicId });
       setFormError(null);
       setChallenge(result.data);
     });
   };
 
+  const backToSignIn = () => {
+    startTransition(async () => {
+      const result = await cancelLoginTwoFactorAction({});
+      if (!result.success) {
+        setFormError(result.message);
+        return;
+      }
+      router.refresh();
+      router.replace(result.data.redirectTo);
+    });
+  };
+
   return (
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
+      <input type="hidden" {...register("challengePublicId")} />
       {formError ? (
         <div
           role="alert"
@@ -296,12 +323,14 @@ export function VerifyTwoFactorForm({ challenge: initialChallenge }: VerifyTwoFa
           </button>
         ))}
 
-        <Link
-          href={ROUTES.CANCEL_TWO_FACTOR}
+        <button
+          type="button"
           className="text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+          onClick={backToSignIn}
+          disabled={isPending}
         >
           Back to sign in
-        </Link>
+        </button>
       </div>
     </form>
   );

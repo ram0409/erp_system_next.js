@@ -20,6 +20,7 @@ import {
   confirmEmailOtpEnrollmentSchema,
   confirmSmsOtpEnrollmentSchema,
   disableTwoFactorMethodSchema,
+  resendLoginTwoFactorSchema,
   switchLoginTwoFactorMethodSchema,
   verifyLoginTwoFactorSchema,
 } from "@/validations/two-factor";
@@ -27,19 +28,56 @@ import { z } from "zod";
 
 const emptyInputSchema = z.object({}).default({});
 
+async function resolvePendingChallengePublicId(
+  clientChallengePublicId: string | undefined,
+): Promise<string> {
+  const cookieChallengePublicId = await readTwoFactorPendingCookie();
+
+  if (!cookieChallengePublicId) {
+    throw new UnauthorizedError(ERROR_MESSAGES.TWO_FACTOR_EXPIRED);
+  }
+
+  if (!clientChallengePublicId || clientChallengePublicId === cookieChallengePublicId) {
+    return cookieChallengePublicId;
+  }
+
+  const synced = await twoFactorService.resolveLoginChallengePublicId(
+    clientChallengePublicId,
+    cookieChallengePublicId,
+  );
+
+  if (synced) {
+    await setTwoFactorPendingCookie(synced);
+    return synced;
+  }
+
+  return cookieChallengePublicId;
+}
+
+/** Clears pending 2FA without a GET that Next can prefetch. */
+export const cancelLoginTwoFactorAction = definePublicAction({
+  name: "twoFactor.cancelLogin",
+  schema: emptyInputSchema,
+  handler: async () => {
+    await clearTwoFactorPendingCookie();
+    return { redirectTo: ROUTES.LOGIN };
+  },
+});
+
 export const verifyLoginTwoFactorAction = definePublicAction({
   name: "twoFactor.verifyLogin",
   schema: verifyLoginTwoFactorSchema,
   successMessage: SUCCESS_MESSAGES.TWO_FACTOR_VERIFIED,
   handler: async (input, context) => {
-    const challengePublicId = await readTwoFactorPendingCookie();
+    const cookieChallengePublicId = await readTwoFactorPendingCookie();
 
-    if (!challengePublicId) {
+    if (!cookieChallengePublicId) {
       throw new UnauthorizedError(ERROR_MESSAGES.TWO_FACTOR_EXPIRED);
     }
 
     const result = await twoFactorService.completeLoginWithTwoFactor({
-      challengePublicId,
+      challengePublicId: input.challengePublicId,
+      cookieChallengePublicId,
       code: input.code,
       ipAddress: context.ipAddress,
       userAgent: await getUserAgent(),
@@ -50,7 +88,7 @@ export const verifyLoginTwoFactorAction = definePublicAction({
     scheduleInactivitySweep(result.userId);
 
     return {
-      redirectTo: ROUTES.DASHBOARD,
+      redirectTo: result.mustChangePassword ? ROUTES.CHANGE_PASSWORD : ROUTES.DASHBOARD,
     };
   },
 });
@@ -59,12 +97,7 @@ export const switchLoginTwoFactorMethodAction = definePublicAction({
   name: "twoFactor.switchLoginMethod",
   schema: switchLoginTwoFactorMethodSchema,
   handler: async (input) => {
-    const challengePublicId = await readTwoFactorPendingCookie();
-
-    if (!challengePublicId) {
-      throw new UnauthorizedError(ERROR_MESSAGES.TWO_FACTOR_EXPIRED);
-    }
-
+    const challengePublicId = await resolvePendingChallengePublicId(input.challengePublicId);
     const challenge = await twoFactorService.switchLoginMethod(challengePublicId, input.method);
     await setTwoFactorPendingCookie(challenge.challengePublicId);
 
@@ -74,15 +107,10 @@ export const switchLoginTwoFactorMethodAction = definePublicAction({
 
 export const resendLoginTwoFactorEmailAction = definePublicAction({
   name: "twoFactor.resendLoginEmail",
-  schema: emptyInputSchema,
+  schema: resendLoginTwoFactorSchema,
   successMessage: SUCCESS_MESSAGES.TWO_FACTOR_CODE_SENT,
-  handler: async () => {
-    const challengePublicId = await readTwoFactorPendingCookie();
-
-    if (!challengePublicId) {
-      throw new UnauthorizedError(ERROR_MESSAGES.TWO_FACTOR_EXPIRED);
-    }
-
+  handler: async (input) => {
+    const challengePublicId = await resolvePendingChallengePublicId(input.challengePublicId);
     const challenge = await twoFactorService.resendLoginEmailCode(challengePublicId);
     await setTwoFactorPendingCookie(challenge.challengePublicId);
 
@@ -92,15 +120,10 @@ export const resendLoginTwoFactorEmailAction = definePublicAction({
 
 export const resendLoginTwoFactorSmsAction = definePublicAction({
   name: "twoFactor.resendLoginSms",
-  schema: emptyInputSchema,
+  schema: resendLoginTwoFactorSchema,
   successMessage: SUCCESS_MESSAGES.TWO_FACTOR_CODE_SENT,
-  handler: async () => {
-    const challengePublicId = await readTwoFactorPendingCookie();
-
-    if (!challengePublicId) {
-      throw new UnauthorizedError(ERROR_MESSAGES.TWO_FACTOR_EXPIRED);
-    }
-
+  handler: async (input) => {
+    const challengePublicId = await resolvePendingChallengePublicId(input.challengePublicId);
     const challenge = await twoFactorService.resendLoginSmsCode(challengePublicId);
     await setTwoFactorPendingCookie(challenge.challengePublicId);
 

@@ -101,6 +101,23 @@ export function findActiveByPublicId(publicId: string) {
   );
 }
 
+/** LOGIN challenge by public id, including already-consumed rows (cookie may lag after resend). */
+export function findLoginChallengeByPublicId(publicId: string) {
+  return withPrismaErrors("twoFactor.findLoginChallengeByPublicId", () =>
+    prisma.twoFactorChallenge.findFirst({
+      where: {
+        publicId,
+        purpose: "LOGIN",
+      },
+      select: {
+        userId: true,
+        createdAt: true,
+        consumedAt: true,
+      },
+    }),
+  );
+}
+
 /** LOGIN challenge still in the pending window, including after the OTP expires (for resend). */
 export function findLoginByPublicId(publicId: string) {
   return withPrismaErrors("twoFactor.findLoginByPublicId", () =>
