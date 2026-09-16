@@ -4,6 +4,7 @@ import { Suspense, type ReactNode } from "react";
 
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { AuthShell } from "@/components/layout/auth-shell";
 import { NavigationProgress } from "@/components/layout/navigation-progress";
 import { PageContainer } from "@/components/layout/page-container";
 import { PermissionsProvider } from "@/components/providers/permissions-provider";
@@ -13,9 +14,10 @@ import { Card } from "@/components/ui/card";
 import { publicEnv } from "@/config/public-env";
 import { CURRENT_PATH_HEADER } from "@/constants/auth";
 import { NAVIGATION, filterNavigation } from "@/constants/navigation";
+import { ROUTES } from "@/constants/routes";
 import { permissionChecker, toPermissionSnapshot } from "@/lib/authorization";
 import { loginHref } from "@/lib/login-href";
-import { getActorContext, getSessionExpiresAt } from "@/lib/session";
+import { getActorContext, getSessionExpiresAt, requiresPasswordChange } from "@/lib/session";
 import { getCompanyBrand } from "@/services/settings-service";
 import { getWorkspaceSwitcher } from "@/services/workspace-service";
 
@@ -44,6 +46,20 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   if (!actor) {
     redirect(loginHref(currentPath));
+  }
+
+  // First login with a temporary password: only the change-password screen,
+  // without the app sidebar or header.
+  if (await requiresPasswordChange()) {
+    if (currentPath !== ROUTES.CHANGE_PASSWORD) {
+      redirect(ROUTES.CHANGE_PASSWORD);
+    }
+
+    return (
+      <PermissionsProvider value={toPermissionSnapshot(actor)}>
+        <AuthShell>{children}</AuthShell>
+      </PermissionsProvider>
+    );
   }
 
   const navItems = filterNavigation(NAVIGATION, permissionChecker(actor));

@@ -50,7 +50,7 @@ export const verifyLoginTwoFactorAction = definePublicAction({
     scheduleInactivitySweep(result.userId);
 
     return {
-      redirectTo: ROUTES.DASHBOARD,
+      redirectTo: result.mustChangePassword ? ROUTES.CHANGE_PASSWORD : ROUTES.DASHBOARD,
     };
   },
 });
