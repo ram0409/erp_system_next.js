@@ -44,12 +44,17 @@ const serverEnvSchema = z.object({
   SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM: z.string().optional(),
 
-  /** AWS SNS credentials for SMS OTP. Optional in development (codes are logged). */
-  AWS_ACCESS_KEY_ID: z.string().optional(),
-  AWS_SECRET_ACCESS_KEY: z.string().optional(),
-  AWS_REGION: z.string().default("ap-south-1"),
-  /** Optional dedicated sender ID (alpha) where AWS SNS supports it. */
-  AWS_SNS_SENDER_ID: z.string().optional(),
+  /** SMSGatewayHub credentials (same gateway as PHP User_Auth / curl.php). */
+  SMS_GATEWAY_API_KEY: z.string().optional(),
+  SMS_GATEWAY_SENDER_ID: z.string().default("GMHIND"),
+  SMS_GATEWAY_CHANNEL: z.coerce.number().int().positive().default(2),
+  SMS_GATEWAY_ROUTE: z.coerce.number().int().positive().default(13),
+  SMS_GATEWAY_BASE_URL: z
+    .string()
+    .url()
+    .default("https://www.smsgatewayhub.com/api/mt/SendSMS"),
+  /** Optional DLT template id (`dlttemplateid` / `tid`). */
+  SMS_GATEWAY_DLT_TEMPLATE_ID: z.string().optional(),
 
   /** Bearer secret for `/api/cron/inactivity`. Optional in development. */
   CRON_SECRET: z.string().min(16, "CRON_SECRET must be at least 16 characters").optional(),
@@ -107,5 +112,5 @@ export const isMailConfigured = Boolean(
   env.SMTP_FROM && (env.SMTP_HOST || env.SMTP_PASSWORD?.startsWith("xkeysib-")),
 );
 
-/** SMS OTP via AWS SNS. Optional in development; codes are logged instead. */
-export const isSmsConfigured = Boolean(env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY);
+/** SMS OTP via SMSGatewayHub. Optional in development; codes are logged instead. */
+export const isSmsConfigured = Boolean(env.SMS_GATEWAY_API_KEY);
