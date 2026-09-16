@@ -1,10 +1,10 @@
 /**
  * Phone helpers shared by SMS delivery and UI masking.
- * Kept separate from `@/lib/sms` so OTP verify does not load the AWS SNS SDK.
+ * Kept separate from `@/lib/sms` so OTP verify does not load the gateway client.
  */
 
 /**
- * Normalizes a stored phone to E.164 for SNS.
+ * Normalizes a stored phone to E.164.
  * 10-digit local numbers are treated as India (+91).
  */
 export function toE164Phone(phone: string): string | null {
